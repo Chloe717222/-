@@ -173,7 +173,7 @@ const STRICT_LOCAL_MEDIA_ONLY = false;
 /**
  * 为 true：格子在 data.json 里未写 url / imageUrl / thumbnail 时，仍尝试用内链
  * `./content/0001.jpg`（四位编号与格子 id 一致）作为首张候选；加载失败会自动按 CONTENT_IMAGE_EXTS 顺序换扩展名再试。
- * 纯音频 / 纯视频格勿探测同编号 jpg，否则会误把任意配图当成「格子缩略图」。
+ * 主视图马赛克缩略图统一显示配图（含音视频格：与编号一致的封面图）。
  * 音频 / 视频在仅有 type、无 url 时同理，按 CONTENT_AUDIO_EXTS / CONTENT_VIDEO_EXTS 链式尝试。
  */
 const IMPLICIT_GRID_IMAGE_FROM_CONTENT_DIR = true;
@@ -426,9 +426,7 @@ function normalizeBlessingItem(id, raw) {
 
   let imageUrl = extractBlessingImageFromRaw(r);
   if (!imageUrl && IMPLICIT_GRID_IMAGE_FROM_CONTENT_DIR) {
-    if (type !== "audio" && type !== "video") {
-      imageUrl = contentUrlFor(id, CONTENT_IMAGE_EXTS[0]);
-    }
+    imageUrl = contentUrlFor(id, CONTENT_IMAGE_EXTS[0]);
   }
   if (!imageUrl) imageUrl = fallbackGridImageUrl();
 
@@ -566,19 +564,6 @@ function buildCellPreviewEl(item, id) {
   }
 
   wrap.appendChild(img);
-
-  const thumbIsPlaceholder =
-    !realSrc || realSrc === GRID_PLACEHOLDER_IMAGE || String(realSrc).startsWith("data:image/svg+xml");
-  const cellType = String(item?.type || "text").toLowerCase();
-  if (thumbIsPlaceholder && (cellType === "audio" || cellType === "video")) {
-    wrap.classList.add(`cell-preview-wrap--${cellType}`);
-    const badge = document.createElement("span");
-    badge.className = "cell-preview-media-badge";
-    badge.setAttribute("aria-hidden", "true");
-    badge.textContent = cellType === "audio" ? "♪" : "▶";
-    wrap.appendChild(badge);
-  }
-
   return wrap;
 }
 
@@ -2261,11 +2246,23 @@ function showTimedPopup(message, duration = 5000) {
 }
 
 async function loadData() {
-  /** 线上分享链接必须以同目录 data.json 为准；若先读 localStorage，曾「保存到当前浏览器」的设备会一直看到旧稿/空稿，与他人不一致。 */
+  /**
+   * 线上必须以同目录 `data.json` 为准。
+   * 若先读 localStorage，曾「保存到当前浏览器」的设备会一直看到旧稿；且浏览器/CDN 可能强缓存同名 JSON。
+   * 每次请求带时间戳 query + 禁止缓存，使访客每次打开链接都像第一次拉取最新稿。
+   */
   let networkJson = null;
   try {
-    const dataHref = new URL("data.json", document.baseURI || window.location.href).href;
-    const res = await fetch(dataHref, { cache: "no-store" });
+    const dataUrl = new URL("data.json", document.baseURI || window.location.href);
+    dataUrl.searchParams.set("_cb", String(Date.now()));
+    const res = await fetch(dataUrl.href, {
+      cache: "no-store",
+      credentials: "omit",
+      headers: {
+        "Cache-Control": "no-cache, no-store",
+        Pragma: "no-cache",
+      },
+    });
     if (res.ok) networkJson = await res.json();
   } catch {
     networkJson = null;
