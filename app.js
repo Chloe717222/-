@@ -28,8 +28,13 @@ const SITE_REVISION_LS_KEY = "lianlian-site-deploy-revision-v1";
 const SURPRISE_VIDEO_URL = "./content/surprise.mp4";
 /** 主视图两侧祝福字幕飘起时的 BGM（彩蛋流程结束后与 `startBlessingSidesShower` 同步） */
 const BLESSING_SIDES_BGM_URL = "./content/happybirthday.aac";
+/** 弹幕阶段 BGM 目标响度相对原稿的比例（HTML `<audio>` 与 Web Audio 分支共用） */
+const BLESSING_BGM_VOLUME_SCALE = 2 / 3;
 /** 弹幕阶段 HTML5 `<audio>` BGM 的目标音量与浅入时长（Web Audio 分支用同一毫秒数做 gain 斜坡） */
-const BLESSING_BGM_HTML_TARGET_VOL = 0.38;
+const BLESSING_BGM_HTML_TARGET_VOL = 0.38 * BLESSING_BGM_VOLUME_SCALE;
+/** Web Audio：文件 BGM / 合成旋律峰值（与历史 0.38 / 0.32 对齐后再乘 `BLESSING_BGM_VOLUME_SCALE`） */
+const BLESSING_BGM_WA_TARGET_FILE = 0.38 * BLESSING_BGM_VOLUME_SCALE;
+const BLESSING_BGM_WA_TARGET_SYNTH = 0.32 * BLESSING_BGM_VOLUME_SCALE;
 const BLESSING_BGM_FADE_IN_MS = 1250;
 
 /**
@@ -208,6 +213,10 @@ const HERO_PLACEHOLDER_IMAGE =
 const fallbackHero = HERO_PLACEHOLDER_IMAGE;
 /** 与 CSV / 运营约定一致：格子配图默认文件名 */
 const CONTENT_MEDIA_DIR = "./content";
+/** 格用小图子目录（相对 content/）；`scripts/generate-content-thumbs.mjs` 批量写入；弹窗大图仍用 `imageUrl` */
+const CONTENT_THUMB_SUBDIR = "thumbs";
+/** 小图扩展名尝试顺序（与生成脚本默认 webp 一致） */
+const CONTENT_THUMB_EXTS = ["webp", "jpg", "jpeg", "png"];
 
 /**
  * 与 scripts/content-media-exts.mjs 同步（改扩展名时请两处一起改）
@@ -231,6 +240,7 @@ const STRICT_LOCAL_MEDIA_ONLY = false;
  * `./content/0001.jpg`（四位编号与格子 id 一致）作为首张候选；加载失败会自动按 CONTENT_IMAGE_EXTS 顺序换扩展名再试。
  * 主视图马赛克缩略图统一显示配图（含音视频格：与编号一致的封面图）。
  * 音频 / 视频在仅有 type、无 url 时同理，按 CONTENT_AUDIO_EXTS / CONTENT_VIDEO_EXTS 链式尝试。
+ * 线上约千格同屏：配图体积越小（如 WebP、边长 256～512 导出）首屏越快；本页已做并发与延迟加载，仍受带宽与解码限制。
  */
 const IMPLICIT_GRID_IMAGE_FROM_CONTENT_DIR = true;
 
@@ -366,6 +376,28 @@ function getPayload() {
   };
 }
 
+/** 线上主视觉：`<link rel=preload>` 与格子缩略图并行拉取，缩短「整幅画面」可感知的等待；跳过 data:/blob: */
+function syncHeroImagePreloadLink(url) {
+  const u = String(url || "").trim();
+  let link = document.getElementById("heroImagePreload");
+  if (!u || u.startsWith("data:") || u.startsWith("blob:")) {
+    if (link) link.remove();
+    return;
+  }
+  try {
+    if (!link) {
+      link = document.createElement("link");
+      link.id = "heroImagePreload";
+      link.rel = "preload";
+      link.as = "image";
+      document.head.appendChild(link);
+    }
+    link.href = u;
+  } catch {
+    /* ignore */
+  }
+}
+
 function applyData(data) {
   contentMap.clear();
   const items = data && data.items ? data.items : {};
@@ -377,6 +409,7 @@ function applyData(data) {
   state.heroImage = data && data.heroImage ? data.heroImage : fallbackHero;
   if (STRICT_LOCAL_MEDIA_ONLY && isHttpUrl(state.heroImage)) state.heroImage = fallbackHero;
   heroImageEl.src = state.heroImage;
+  syncHeroImagePreloadLink(state.heroImage);
 }
 
 /**
@@ -472,7 +505,8 @@ function extractBlessingVideoFromRaw(r) {
 
 /**
  * 归一化每条格子数据（唯一数据源）：
- * - imageUrl：必有（无则占位图），供格子缩略图 + 弹窗大图
+ * - imageUrl：必有（无则占位图），**弹窗大图 / 保存原图**用高清；主视图格优先用 `thumbnail` 或约定 `./content/thumbs/{id}.webp`
+ * - thumbnail：可选，CSV「缩略图」列；未填且 `imageUrl` 为同源 `./content/{id}.*` 时仍尝试 `content/thumbs/` 下小图
  * - text：必有（空则占位文案）
  * - audioUrl / videoUrl：有则弹窗展示对应控件，无则不渲染
  */
@@ -524,6 +558,63 @@ function blessingImageSrc(item, id) {
   const u = item && String(item.imageUrl || "").trim();
   if (u) return u;
   return fallbackGridImageUrl();
+}
+
+/** `imageUrl` 是否像同源 `./content/0001.jpg`（可配对小图目录），外链 / data 不算 */
+function isLikelyContentNumberedImageUrl(url, id) {
+  const u = String(url || "")
+    .trim()
+    .split(/[?#]/)[0]
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  if (!u || isHttpUrl(url) || u.startsWith("data:") || u.startsWith("blob:")) return false;
+  const base = String(CONTENT_MEDIA_DIR)
+    .replace(/^\.\//, "")
+    .toLowerCase();
+  const idl = String(id).toLowerCase();
+  if (u.includes(`/${base}/${CONTENT_THUMB_SUBDIR}/`)) return false;
+  return u.includes(`/${base}/${idl}.`);
+}
+
+/** 主视图格用小图 URL 列表（先试 CSV 缩略图列，再试约定 thumbs）；弹窗勿用此函数 */
+function gridThumbUrlCandidates(item, id) {
+  const c = [];
+  const manual = item && String(item.thumbnail || "").trim();
+  if (manual) c.push(manual);
+  const full = blessingImageSrc(item, id);
+  if (isLikelyContentNumberedImageUrl(full, id)) {
+    const dir = `${CONTENT_MEDIA_DIR}/${CONTENT_THUMB_SUBDIR}`;
+    for (const ext of CONTENT_THUMB_EXTS) c.push(`${dir}/${id}.${ext}`);
+  }
+  return [...new Set(c)];
+}
+
+function blessingGridImageSrc(item, id) {
+  const list = gridThumbUrlCandidates(item, id);
+  if (list.length) return list[0];
+  return blessingImageSrc(item, id);
+}
+
+/** 格图：缩略候选链失败后回退 `imageUrl` 再走扩展名链；弹窗大图只用 `blessingImageSrc` + `bindImageContentFallback` */
+function bindGridCellImageFallback(img, id, item) {
+  const thumbs = gridThumbUrlCandidates(item, id);
+  const full = blessingImageSrc(item, id);
+  const runThumb = thumbs.length > 0 && thumbs[0] !== full;
+  if (!runThumb) {
+    bindImageContentFallback(img, id);
+    return;
+  }
+  let i = 1;
+  img.addEventListener("error", function onGridThumbChain() {
+    if (i < thumbs.length) {
+      img.src = thumbs[i];
+      i += 1;
+      return;
+    }
+    img.removeEventListener("error", onGridThumbChain);
+    img.src = full;
+    bindImageContentFallback(img, id);
+  });
 }
 
 function blessingModalCopyText(item) {
@@ -604,20 +695,16 @@ function buildCellPreviewEl(item, id) {
   img.alt = "";
   img.decoding = "async";
 
-  const realSrc = blessingImageSrc(item, id);
-  if (isMobileGridBatching()) {
-    /** 已由 IO + 并发队列控制起载时机；勿再用原生 lazy（相对视口）否则赋 src 后仍可能被二次推迟 */
-    img.loading = "eager";
-    /** 先占位，真实 src 由 IntersectionObserver 在进入可视区域后再设，避免 1000 路同时解码撑爆内存 */
-    img.dataset.deferSrc = realSrc;
-    img.dataset.blessingCellId = id;
-    img.src = GRID_PLACEHOLDER_IMAGE;
-    img.classList.add("cell-preview--defer");
-  } else {
-    img.loading = "lazy";
-    img.src = realSrc;
-    bindImageContentFallback(img, id);
-  }
+  const realSrc = blessingGridImageSrc(item, id);
+  /**
+   * 本地 file:// 千图瞬间可读盘；线上需经 HTTP，若每格立刻 `src=` 会触发近千路并发，TLS/连接排队反更慢。
+   * 全端统一：占位 + IO 进视口再赋真实 src（优先 `content/thumbs` 小图）；并发上限见 `getMosaicThumbMaxParallel`。
+   */
+  img.loading = "eager";
+  img.dataset.deferSrc = realSrc;
+  img.dataset.blessingCellId = id;
+  img.src = GRID_PLACEHOLDER_IMAGE;
+  img.classList.add("cell-preview--defer");
 
   wrap.appendChild(img);
   return wrap;
@@ -634,7 +721,7 @@ function isMobileGridBatching() {
   return false;
 }
 
-/** 格子缩略图延迟加载（仅移动端）：与 renderGrid 生命周期一致，重绘前 disconnect */
+/** 格子缩略图延迟加载：与 renderGrid 生命周期一致，重绘前 disconnect */
 let mosaicThumbIo = null;
 /** IntersectionObserver 不可用或创建失败时置 true，改成立即赋 src，避免整页格子永远灰块 */
 let mosaicThumbIoUnavailable = false;
@@ -643,9 +730,16 @@ let mosaicIoNudgeTimer = null;
 /** 待赋真实 src 的缩略图（仅仍带 deferSrc）；按距视口中心由近到远出队，避免全景时千路并发把连接与解码堵死 */
 const mosaicThumbPendingList = [];
 let mosaicThumbInflight = 0;
-/** 与 HTTP 并发量级接近；过大仍易尖峰，过小首屏完成慢 */
-const MOSAIC_THUMB_MAX_PARALLEL = 8;
 let mosaicThumbFetchPriorityBudget = 0;
+
+/** 线上缩略图并发：触控保守，键鼠可提高以更快铺满整幅马赛克 */
+function getMosaicThumbMaxParallel() {
+  return isMobileGridBatching() ? 12 : 28;
+}
+
+function getMosaicThumbFetchPriorityCap() {
+  return isMobileGridBatching() ? 16 : 40;
+}
 
 function mosaicThumbResetQueue() {
   mosaicThumbPendingList.length = 0;
@@ -688,7 +782,7 @@ function mosaicThumbDequeVisible(img) {
 }
 
 function mosaicThumbTryDrain() {
-  while (mosaicThumbInflight < MOSAIC_THUMB_MAX_PARALLEL && mosaicThumbPendingList.length) {
+  while (mosaicThumbInflight < getMosaicThumbMaxParallel() && mosaicThumbPendingList.length) {
     const { img } = mosaicThumbPendingList.shift();
     if (!(img instanceof HTMLImageElement) || !img.dataset.deferSrc) continue;
     if (!img.isConnected) continue;
@@ -699,7 +793,7 @@ function mosaicThumbTryDrain() {
     };
     img.addEventListener("load", done, { once: true });
     img.addEventListener("error", done, { once: true });
-    if (mosaicThumbFetchPriorityBudget < 16 && "fetchPriority" in img) {
+    if (mosaicThumbFetchPriorityBudget < getMosaicThumbFetchPriorityCap() && "fetchPriority" in img) {
       try {
         img.fetchPriority = "high";
         mosaicThumbFetchPriorityBudget++;
@@ -738,7 +832,7 @@ function activateDeferredMosaicThumb(img) {
   delete img.dataset.blessingCellId;
   img.classList.remove("cell-preview--defer");
   img.src = rawSrc;
-  if (bid) bindImageContentFallback(img, bid);
+  if (bid) bindGridCellImageFallback(img, bid, contentMap.get(bid));
 }
 
 function ensureMosaicThumbIo() {
@@ -760,7 +854,7 @@ function ensureMosaicThumbIo() {
         mosaicThumbPendingList.sort((a, b) => a.d2 - b.d2);
         mosaicThumbTryDrain();
       },
-      { root, rootMargin: "80px", threshold: 0 }
+      { root, rootMargin: "18%", threshold: 0 }
     );
   } catch {
     mosaicThumbIoUnavailable = true;
@@ -782,7 +876,7 @@ function registerMosaicDeferredThumb(img) {
 
 /** 部分 WebView 在父级 transform 更新后不会立刻重算 IO，轻量 unobserve/observe 触发补载 */
 function scheduleMosaicIoNudge() {
-  if (!isMobileGridBatching() || !mosaicThumbIo) return;
+  if (!mosaicThumbIo) return;
   if (mosaicIoNudgeTimer != null) window.clearTimeout(mosaicIoNudgeTimer);
   mosaicIoNudgeTimer = window.setTimeout(() => {
     mosaicIoNudgeTimer = null;
@@ -806,13 +900,13 @@ function scheduleNextGridStep(stepFn) {
 }
 
 /**
- * 移动端一次插入 1000 个格子 + 缩略图易导致 WKWebView/微信内核闪屏、内存尖峰；分帧追加减轻主线程与解码压力。
- * 插入顺序由 MOSAIC_IDS_CENTER_FIRST 决定，每格显式 grid 行列，缩略图由 IO + 并发队列按「离视口中心近者优先」加载。
+ * 一次插入 1000 格：触控端分帧更密（防 WebView 尖峰），桌面略大帧 + 延迟缩略图以尽快挂上 IO、避免千路 HTTP 互抢。
+ * 插入顺序由 MOSAIC_IDS_CENTER_FIRST 决定；缩略图由 IO + 并发队列按「离画区中心近者优先」加载。
  */
 function renderGrid() {
   disconnectMosaicThumbIo();
   mosaicEl.innerHTML = "";
-  const chunk = isMobileGridBatching() ? 48 : 250;
+  const chunk = isMobileGridBatching() ? 48 : 96;
   let idx = 0;
   function step() {
     const end = Math.min(idx + chunk, TOTAL);
@@ -830,17 +924,13 @@ function renderGrid() {
       cell.classList.toggle("cell--placeholder", !item);
       cell.appendChild(buildCellPreviewEl(item, id));
       cell.addEventListener("click", () => openById(id));
-      if (isMobileGridBatching()) {
-        const thumb = cell.querySelector("img.cell-preview--defer");
-        if (thumb) registerMosaicDeferredThumb(thumb);
-      }
+      const thumb = cell.querySelector("img.cell-preview--defer");
+      if (thumb) registerMosaicDeferredThumb(thumb);
       frag.appendChild(cell);
     }
     mosaicEl.appendChild(frag);
-    if (isMobileGridBatching()) {
-      mosaicThumbPendingList.sort((a, b) => a.d2 - b.d2);
-      mosaicThumbTryDrain();
-    }
+    mosaicThumbPendingList.sort((a, b) => a.d2 - b.d2);
+    mosaicThumbTryDrain();
     if (idx < TOTAL) scheduleNextGridStep(step);
   }
   requestAnimationFrame(step);
@@ -1764,11 +1854,7 @@ function showBlessingLinesThenMeteorRain() {
     dlg.showModal();
     const lineStaggerMs = 2000;
     const holdAllVisibleMs = 3000;
-    /** 背景音在最后一句「恋姐生日快乐」显现时开启（与该行 is-visible 同步）；弹幕仍在整段对白结束后再起 */
-    window.setTimeout(
-      () => startBlessingSidesBgmPlayback(),
-      (lines.length - 1) * lineStaggerMs
-    );
+    /** 生日快乐 BGM 在彩蛋弹窗关闭时已启动（见 `quizModal` close），此处不再延迟播放，避免移动端手势链断裂导致无声 */
     const ps = card.querySelectorAll(".blessing-reveal-line");
     ps.forEach((p, i) => {
       window.setTimeout(() => p.classList.add("is-visible"), i * lineStaggerMs);
@@ -1877,7 +1963,7 @@ function unduckBlessingSidesBgmFromModalMedia() {
   if (duck.mode === "wa" && rt.waGainNode && blessingAudioCtx) {
     const g = rt.waGainNode.gain;
     const now = blessingAudioCtx.currentTime;
-    const cap = rt.waTargetGain != null ? rt.waTargetGain : 0.38;
+    const cap = rt.waTargetGain != null ? rt.waTargetGain : BLESSING_BGM_WA_TARGET_FILE;
     const before = duck.waGainBefore != null ? duck.waGainBefore : cap;
     const target = Math.min(cap, Math.max(0.0001, before));
     try {
@@ -2148,7 +2234,7 @@ async function runBlessingBgmPlaybackCore() {
     src.buffer = buf;
     src.loop = false;
     const master = ctx.createGain();
-    const targetGain = usedFileBgm ? 0.38 : 0.32;
+    const targetGain = usedFileBgm ? BLESSING_BGM_WA_TARGET_FILE : BLESSING_BGM_WA_TARGET_SYNTH;
     const tStart = ctx.currentTime;
     master.gain.setValueAtTime(0.0001, tStart);
     master.gain.linearRampToValueAtTime(targetGain, tStart + BLESSING_BGM_FADE_IN_MS / 1000);
@@ -2409,6 +2495,8 @@ async function loadData() {
     const res = await fetch(dataUrl.href, {
       cache: "no-store",
       credentials: "omit",
+      /** Chromium：提高 data.json 相对缩略图的调度优先级，利于先出稿再出格图 */
+      priority: "high",
       headers: {
         "Cache-Control": "no-cache, no-store",
         Pragma: "no-cache",
@@ -2653,6 +2741,8 @@ quizModalEl.addEventListener("close", () => {
     updateExportBlessingsTextButton();
     primeBlessingWebAudio();
     warmBlessingSidesBgmFromUserGesture();
+    /** 须紧跟用户关弹窗手势启动 BGM；若延到对白弹窗内再 play，部分手机会拦截导致「弹框结束后没音乐」 */
+    startBlessingSidesBgmPlayback();
     showBlessingLinesThenMeteorRain();
   }
 });

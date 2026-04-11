@@ -43,7 +43,7 @@
           class="primary-controls__input"
           type="text"
           maxlength="4"
-          placeholder="请输入具体编号（0001-1000）"
+          placeholder="输入编号0001-1000"
           inputmode="numeric"
           autocomplete="off"
           enterkeyhint="search"
@@ -60,7 +60,13 @@
 
       <section class="canvas-wrap" id="canvasWrap" data-canvas-zoom="fit" aria-label="祝福主图">
         <div id="canvasStage" class="canvas-stage">
-          <img id="heroImage" class="hero-image" alt="生贺主视觉" decoding="async" />
+          <img
+            id="heroImage"
+            class="hero-image"
+            alt="生贺主视觉"
+            decoding="async"
+            fetchpriority="high"
+          />
           <div id="mosaic" class="mosaic" aria-label="祝福热区"></div>
         </div>
       </section>

@@ -8,6 +8,8 @@
   --gold: #c7a86b;
   /* 宽度不要用「视口高度」算，否则手机横屏/矮屏会变成极窄一条 */
   --stage-width: min(100%, 1040px, calc(100vw - 36px));
+  /** 查找祝福行：编号框 | 查找 | 第一条；后两列同 fr 恒等宽，调 fr 即调整体宽比 */
+  --primary-controls-grid: minmax(6.75rem, 5fr) minmax(4.5rem, 1fr) minmax(4.5rem, 1fr);
 }
 
 * {
@@ -447,8 +449,6 @@ p {
 }
 
 .primary-controls {
-  justify-content: flex-start;
-  align-items: center;
   width: var(--stage-width);
   max-width: 100%;
   margin-left: auto;
@@ -458,12 +458,14 @@ p {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fbfcfd;
-  flex-wrap: nowrap;
-  gap: 10px 12px;
   box-sizing: border-box;
 }
 
 .primary-controls--row {
+  display: grid;
+  grid-template-columns: var(--primary-controls-grid);
+  gap: 10px 12px;
+  align-items: center;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
@@ -475,19 +477,17 @@ p {
   font-size: 14px;
 }
 
-.primary-controls input[type="text"],
-.primary-controls__input {
-  flex: 1 1 0;
+.primary-controls--row > .primary-controls__input,
+.primary-controls--row > input[type="text"] {
   min-width: 0;
+  width: 100%;
 }
 
-.primary-controls__first {
-  flex-shrink: 0;
+.primary-controls--row > .primary-controls__open,
+.primary-controls--row > .primary-controls__first {
+  min-width: 0;
+  width: 100%;
   white-space: nowrap;
-}
-
-.primary-controls__open {
-  flex-shrink: 0;
 }
 
 /* 与 .canvas-view-hint-row / .controls-help（画布下方说明）同字号 */
@@ -1183,6 +1183,8 @@ html.birthday-gate-boot #birthdayGate[hidden] {
       100%,
       calc(100vw - max(24px, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)))
     );
+    /* 窄屏略增大两键占比（约 3:1:1 → 输入约 60%），后两列同 fr 仍等宽 */
+    --primary-controls-grid: minmax(5.5rem, 3fr) minmax(3.75rem, 1fr) minmax(3.75rem, 1fr);
   }
 
   .container {
@@ -1227,10 +1229,7 @@ html.birthday-gate-boot #birthdayGate[hidden] {
 
   .primary-controls {
     padding: 10px 10px;
-    flex-wrap: nowrap;
-    align-items: center;
     gap: 6px 8px;
-    /* 极窄屏仍单行：必要时横向滑动，避免把按钮挤换行 */
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
@@ -1244,17 +1243,13 @@ html.birthday-gate-boot #birthdayGate[hidden] {
 
   .primary-controls input[type="text"],
   .primary-controls__input {
-    /* 默认由下方 #codeInput 规则收窄；非主输入仍略可伸缩 */
-    flex: 0 1 auto;
-    min-width: 3.5rem;
+    min-width: 0;
     min-height: 44px;
     font-size: 16px;
   }
 
   .primary-controls__first,
   .primary-controls__open {
-    flex-shrink: 0;
-    white-space: nowrap;
     min-height: 44px;
   }
 
@@ -1262,10 +1257,6 @@ html.birthday-gate-boot #birthdayGate[hidden] {
     min-height: 44px;
     padding: 10px 10px;
     font-size: 13px;
-  }
-
-  .controls.primary-controls {
-    flex-wrap: nowrap;
   }
 
   .controls-help {
@@ -1703,7 +1694,6 @@ html.birthday-gate-boot #birthdayGate[hidden] {
 /* 宽度约为原约 11rem 的 2/3，减轻单行横向滑动才能露出「第一条」 */
 @media (max-width: 768px) {
   .primary-controls__input#codeInput {
-    flex: 1 1 0;
     min-width: min(3.5rem, 100%);
     max-width: none;
     font-size: 16px;
