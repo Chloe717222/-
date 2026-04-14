@@ -12,7 +12,7 @@ const REQUIRED_ROOT = ["index.html", "cake.html"];
 const CSV_CANDIDATES = [
   "content/blessings-test-five-plates.csv",
 ];
-const BGM_REL = "content/happy-birthday.mp3";
+const BGM_REL = "content/happybirthday.aac";
 /** 常见误操作：把某条祝福语音复制成生日 BGM 文件名 */
 const BGM_MUST_NOT_MATCH = "content/0001.mp3";
 
