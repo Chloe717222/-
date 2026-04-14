@@ -634,6 +634,25 @@
         -webkit-appearance: none;
         appearance: none;
       }
+      .scene4-fan-badge {
+        position: fixed;
+        top: calc(max(10px, env(safe-area-inset-top, 0px)) + 56px);
+        right: max(12px, env(safe-area-inset-right, 0px));
+        z-index: 208;
+        min-width: 118px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(170, 190, 178, 0.52);
+        box-shadow: 0 8px 18px rgba(22, 36, 30, 0.14);
+        font-size: 13px;
+        line-height: 1.25;
+        color: #2f4f3f;
+      }
+      .scene4-fan-badge b {
+        font-size: 15px;
+        color: #1f3a2b;
+      }
       .received-scene-head {
         position: sticky;
         top: 0;
@@ -994,6 +1013,22 @@
         overflow: auto;
         white-space: pre-wrap;
       }
+      .wish-catch-entry-btn {
+        width: 100%;
+        text-align: left;
+        margin: 0 0 8px;
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.86);
+        color: var(--text);
+        padding: 10px 11px;
+        cursor: pointer;
+        line-height: 1.45;
+        font-size: 14px;
+      }
+      .wish-catch-entry-btn:last-child {
+        margin-bottom: 0;
+      }
       .wish-catch-actions {
         display: flex;
         flex-direction: column;
@@ -1048,6 +1083,19 @@
         background: rgba(255, 255, 255, 0.72);
         border-color: rgba(121, 167, 139, 0.3);
         white-space: normal;
+      }
+      #wishCatchRoot[data-mode="bomb"] .wish-catch-card {
+        background: linear-gradient(165deg, rgba(255, 246, 234, 0.98), rgba(255, 232, 222, 0.98));
+        border: 1px solid rgba(205, 102, 82, 0.34);
+        color: #5a2d21;
+        box-shadow: 0 18px 44px rgba(134, 58, 46, 0.2);
+      }
+      #wishCatchRoot[data-mode="bomb"] .wish-catch-meta {
+        color: rgba(112, 48, 36, 0.92);
+      }
+      #wishCatchRoot[data-mode="bomb"] #wishCatchPrimaryBtn {
+        background: linear-gradient(180deg, #ff8d5f, #e96d41);
+        color: #fff8f2;
       }
       .scene5-draw-head {
         display: flex;
@@ -2100,6 +2148,13 @@
           min-height: min(60vh, 500px);
           max-height: min(60vh, 500px);
         }
+        .scene4-fan-badge {
+          top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px);
+          right: max(10px, env(safe-area-inset-right, 0px));
+          min-width: 108px;
+          font-size: 12px;
+          padding: 7px 9px;
+        }
       }
     </style>
   </head>
@@ -2139,11 +2194,12 @@
         已收获祝福 0
       </button>
     </div>
-    <div class="data-health-bar" id="dataHealthBar" data-state="ok" aria-live="polite">
+    <div id="scene4FanBadge" class="scene4-fan-badge" hidden>接星数量<br /><b>0</b></div>
+    <div class="data-health-bar" id="dataHealthBar" data-state="ok" aria-live="polite" hidden>
       <span id="dataSourceTag">数据源：未加载</span>
       <button type="button" class="data-selfcheck-btn" id="dataSelfCheckBtn">一键自检</button>
     </div>
-    <button type="button" class="dev-reset-btn" id="devResetBtn" aria-label="清空本机进度并刷新">
+    <button type="button" class="dev-reset-btn" id="devResetBtn" aria-label="清空本机进度并刷新" hidden>
       happy birthday
     </button>
     <canvas id="gameCanvas" aria-label="驿站沿路"></canvas>
@@ -2498,6 +2554,7 @@
         var sceneHudTitle = document.getElementById("sceneHudTitle");
         var sceneHudFrac = document.getElementById("sceneHudFrac");
         var sceneHudBarFill = document.getElementById("sceneHudBarFill");
+        var scene4FanBadge = document.getElementById("scene4FanBadge");
         var devResetBtn = document.getElementById("devResetBtn");
         var dataHealthBar = document.getElementById("dataHealthBar");
         var dataSourceTag = document.getElementById("dataSourceTag");
@@ -2649,19 +2706,25 @@
         var scene4MeteorSpawnTimer = 0;
         var scene4Hearts = [];
         var scene4HeartSpawnTimer = 0;
+        var scene4Bombs = [];
+        var scene4BombSpawnTimer = 0;
         var scene4PromptShownAt = 0;
         var scene4CompletionShown = false;
+        var scene4FreePlayMode = false;
+        var scene4FanScore = 0;
         var scene4HoldMove = false;
         var scene4DeferUntilComplete = false;
         var scene3ArrivalPending = false;
         var scene5CapsuleSplitMap = {};
         var scene5DrawCurrent = null;
         var scene5DrawRollingTimer = null;
+        var honorRedirectTimer = null;
         var allDoneHonorPending = false;
         var allDoneHonorShown = false;
         var scene2StayMs = 0;
         var scene2LoveNextSpawnMs = 22000;
         var scene2LoveClaimed = false;
+        var scene2LoveCelebrating = false;
         var scene2BonusItems = [];
         var scene2BonusIndex = 0;
         var scene3TimelineFrontIndex = 0;
@@ -4120,7 +4183,18 @@
           if (!allDoneHonorShown && allScenesComplete()) allDoneHonorPending = true;
           syncSceneSwitchSelectFromState();
           syncStationChrome();
+          updateScene4FanBadge();
           tryFlushAllDoneHonor();
+        }
+
+        function updateScene4FanBadge() {
+          if (!scene4FanBadge) return;
+          if (currentScene !== 4 || !scene4FreePlayMode) {
+            scene4FanBadge.hidden = true;
+            return;
+          }
+          scene4FanBadge.hidden = false;
+          scene4FanBadge.innerHTML = "接星数量<br /><b>" + scene4FanScore + "</b>";
         }
 
         function switchScene(sid) {
@@ -4143,8 +4217,10 @@
           roadside = [];
           scene4Meteors = [];
           scene4Hearts = [];
+          scene4Bombs = [];
           scene4MeteorPool = [];
           scene4HeartSpawnTimer = 0;
+          scene4BombSpawnTimer = 0;
           scene4HoldMove = false;
           if (sid === 2) {
             ambientRabbit = null;
@@ -4159,6 +4235,7 @@
           updateSceneHud();
           showSceneGuideTip(sid);
           syncPlatePresentation();
+          maybeShowSceneCollectedReviewOnReenter(sid);
         }
 
         function sceneGuideTextById(sid) {
@@ -4189,6 +4266,112 @@
             sceneGuideTipTimer = null;
             sceneGuideTipUntilMs = 0;
           }, 3000);
+        }
+
+        function sceneCollectedItems(sid) {
+          var list = blessingsInSceneForProgress(sid);
+          var out = [];
+          for (var i = 0; i < list.length; i++) {
+            var n = normalizeBlessing(list[i]);
+            if (!hasReceivedPoolInScene(sid, n.id)) continue;
+            out.push(n);
+          }
+          return out;
+        }
+
+        function sceneItemPreviewText(n, idx) {
+          var tag =
+            n.type === "video"
+              ? "视频"
+              : n.type === "audio"
+                ? "音频"
+                : n.type === "image"
+                  ? "图片"
+                  : "文案";
+          var txt = (n.text || "").replace(/\s+/g, " ").trim();
+          if (!txt) {
+            if (n.type === "video") txt = "（视频祝福）";
+            else if (n.type === "audio") txt = "（音频祝福）";
+            else if (n.type === "image") txt = "（图片祝福）";
+            else txt = "（无文本内容）";
+          }
+          var uid = n.userId ? "  @" + String(n.userId).trim() : "";
+          return (idx + 1) + ". [" + tag + "] " + txt + uid;
+        }
+
+        function renderWishCatchCollectedList(sid, items) {
+          if (!wishCatchList) return;
+          wishCatchList.hidden = false;
+          wishCatchList.innerHTML = "";
+          if (!items || !items.length) {
+            wishCatchList.textContent = "本关暂无已收集内容。";
+            return;
+          }
+          for (var i = 0; i < items.length; i++) {
+            (function (n, idx) {
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "wish-catch-entry-btn";
+              btn.textContent = sceneItemPreviewText(n, idx);
+              btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeScene4WishModal();
+                openBlessingModal(
+                  {
+                    poolId: n.id,
+                    type: n.type,
+                    text: n.text,
+                    image: n.image,
+                    audio: n.audio,
+                    video: n.video,
+                    nickname: n.nickname,
+                    userId: n.userId != null ? String(n.userId) : "",
+                    sceneId: sid,
+                  },
+                  { record: false }
+                );
+              });
+              wishCatchList.appendChild(btn);
+            })(items[i], i);
+          }
+        }
+
+        function openSceneCollectedReviewModal(sid) {
+          if (sid === 4) {
+            showScene4WishListModal();
+            return;
+          }
+          if (!wishCatchRoot || !wishCatchTitle || !wishCatchMeta || !wishCatchPrimaryBtn || !wishCatchSecondaryBtn || !wishCatchList) return;
+          var items = sceneCollectedItems(sid);
+          if (!items.length) return;
+          wishCatchRoot.dataset.mode = "scene_review";
+          wishCatchRoot.dataset.reviewSid = String(sid);
+          wishCatchTitle.textContent = "本关已收集完成";
+          wishCatchMeta.textContent =
+            "这是你在第" +
+            sid +
+            "关已收集到的完整数据（共 " +
+            items.length +
+            " 条）。";
+          renderWishCatchCollectedList(sid, items);
+          wishCatchPrimaryBtn.textContent = "关闭";
+          wishCatchSecondaryBtn.textContent = sid < SCENE_COUNT ? "去下一关" : "关闭";
+          wishCatchSecondaryBtn.disabled = false;
+          wishCatchRoot.hidden = false;
+          syncBodyModalChromeClass();
+        }
+
+        function maybeShowSceneCollectedReviewOnReenter(sid) {
+          if (!isSceneComplete(sid)) return;
+          setTimeout(function () {
+            if (currentScene !== sid) return;
+            if (!wishCatchRoot || !wishCatchRoot.hidden) return;
+            if (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) return;
+            if (honorRoot && !honorRoot.hidden) return;
+            if (modalRoot && !modalRoot.hidden) return;
+            openSceneCollectedReviewModal(sid);
+          }, 3200);
         }
 
         function tryFlushPendingSceneMilestone() {
@@ -4331,20 +4514,28 @@
         }
 
         function initScene4MeteorTask() {
-          var unread = scene4UnreadBlessings();
-          scene4MeteorPool = unread.slice();
+          var got = uniqueReceivedCountInScene(4);
+          var target = getSceneTargetCount(4);
+          scene4FreePlayMode = target > 0 && got >= target;
+          if (scene4FreePlayMode) {
+            scene4MeteorPool = blessingsInScene(4).map(function (x) { return normalizeBlessing(x); });
+          } else {
+            var unread = scene4UnreadBlessings();
+            scene4MeteorPool = unread.slice();
+          }
           scene4Meteors = [];
           scene4MeteorSpawnTimer = 0;
           scene4Hearts = [];
-          scene4HeartSpawnTimer = 1.8;
-          var got = uniqueReceivedCountInScene(4);
-          var target = getSceneTargetCount(4);
+          scene4HeartSpawnTimer = scene4FreePlayMode ? 0.9 : 1.2;
+          scene4Bombs = [];
+          scene4BombSpawnTimer = scene4FreePlayMode ? 1.1 : 1.5;
           scene4PromptShownAt = Math.floor(got / 20) * 20;
           scene4CompletionShown = target > 0 && got >= target;
           scene4HoldMove = false;
           scene4DeferUntilComplete = false;
           if (wishCatchRoot) wishCatchRoot.hidden = true;
           syncBodyModalChromeClass();
+          updateScene4FanBadge();
           if (scene4CompletionShown) showScene4CompleteModal();
         }
 
@@ -4576,12 +4767,11 @@
 
         function showScene4WishListModal() {
           if (!wishCatchRoot || !wishCatchTitle || !wishCatchMeta || !wishCatchPrimaryBtn || !wishCatchSecondaryBtn || !wishCatchList) return;
-          var lines = scene4CapturedTextList();
+          var items = sceneCollectedItems(4);
           wishCatchRoot.dataset.mode = "list";
           wishCatchTitle.textContent = "已接到的愿望";
-          wishCatchMeta.textContent = "以下是目前已接到的全部愿望（共 " + lines.length + " 条）。";
-          wishCatchList.hidden = false;
-          wishCatchList.textContent = lines.length ? lines.map(function (x, i) { return i + 1 + ". " + x; }).join("\n\n") : "还没有接到愿望。";
+          wishCatchMeta.textContent = "以下是目前已接到的全部愿望（共 " + items.length + " 条，点击可查看完整内容）。";
+          renderWishCatchCollectedList(4, items);
           wishCatchPrimaryBtn.textContent = "继续接流星";
           wishCatchSecondaryBtn.textContent = "去下一关";
           wishCatchRoot.hidden = false;
@@ -4729,13 +4919,9 @@
             aud.style.width = "100%";
             wishCatchList.appendChild(aud);
           } else if (n.type === "video" && n.video) {
-            var vid = document.createElement("video");
-            vid.controls = true;
-            vid.playsInline = true;
-            vid.src = n.video;
-            vid.style.width = "100%";
-            vid.style.borderRadius = "10px";
-            wishCatchList.appendChild(vid);
+            appendOptimizedVideo(wishCatchList, n.video, {
+              radius: "10px",
+            });
           }
           if (wishCatchPrimaryBtn) wishCatchPrimaryBtn.disabled = false;
           if (wishCatchSecondaryBtn) wishCatchSecondaryBtn.disabled = scene2BonusIndex >= scene2BonusItems.length - 1;
@@ -4747,7 +4933,46 @@
           }
         }
 
+        /** 手机端视频体验优化：不加额外 UI，仅做底层加载策略优化。 */
+        function appendOptimizedVideo(container, src, opts) {
+          if (!container || !src) return null;
+          opts = opts || {};
+          var isMobileView =
+            window.matchMedia &&
+            window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
+          var networkInfo = navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+          var networkType = networkInfo && networkInfo.effectiveType ? String(networkInfo.effectiveType) : "";
+          var shouldConservativeLoad = isMobileView || /(^2g$)|(^3g$)|(^slow-2g$)/i.test(networkType);
+          var vid = document.createElement("video");
+          vid.controls = true;
+          vid.playsInline = true;
+          vid.setAttribute("playsinline", "");
+          vid.setAttribute("webkit-playsinline", "true");
+          vid.preload = shouldConservativeLoad ? "none" : "metadata";
+          if (!shouldConservativeLoad) {
+            vid.src = src;
+          }
+          vid.style.width = "100%";
+          if (opts.radius) vid.style.borderRadius = opts.radius;
+          container.appendChild(vid);
+
+          function ensureVideoSrc() {
+            if (vid.src) return;
+            vid.src = src;
+            try {
+              vid.load();
+            } catch (eLoad) {}
+          }
+          vid.addEventListener("pointerdown", ensureVideoSrc, { once: true });
+          if (shouldConservativeLoad) {
+            setTimeout(ensureVideoSrc, 900);
+          }
+          return vid;
+        }
+
         function claimScene2LoveBonus() {
+          if (scene2LoveCelebrating) return;
+          scene2LoveCelebrating = true;
           if (!scene2LoveClaimed) {
             var list = blessingsInScene(2);
             for (var i = 0; i < list.length; i++) {
@@ -4768,10 +4993,20 @@
             scene2LoveClaimed = true;
           }
           roadside = roadside.filter(function (x) { return x.kind === "carrot"; });
-          openScene2AllBlessingsBonusModal();
+          // 先给「恋」彩蛋一个高光时刻：大烟花，再打开隐藏福利弹窗
+          spawnScene2LoveFireworks();
+          setTimeout(function () {
+            scene2LoveCelebrating = false;
+            openScene2AllBlessingsBonusModal();
+          }, 980);
         }
 
         function recordScene4MeteorCatch(n) {
+          if (scene4FreePlayMode) {
+            scene4FanScore += 1;
+            updateScene4FanBadge();
+            return;
+          }
           recordReceivedBlessing({
             poolId: n.id,
             type: n.type,
@@ -4813,8 +5048,45 @@
         }
 
         function recordScene4HeartCatch() {
+          if (scene4FreePlayMode) {
+            scene4FanScore += 10;
+            updateScene4FanBadge();
+            return;
+          }
           var picks = pickScene4BlessingsForBonus(10);
           for (var i = 0; i < picks.length; i++) recordScene4MeteorCatch(picks[i]);
+        }
+
+        function resetScene4ProgressByBomb() {
+          if (scene4FreePlayMode) {
+            scene4FanScore = 0;
+            updateScene4FanBadge();
+            scene4Meteors = [];
+            scene4Hearts = [];
+            scene4Bombs = [];
+            scene4MeteorSpawnTimer = 0.2;
+            scene4HeartSpawnTimer = 0.8;
+            scene4BombSpawnTimer = 0.9;
+            showScene4BombHitModal();
+            return;
+          }
+          receivedBlessings = receivedBlessings.filter(function (e) {
+            return entrySceneId(e) !== 4;
+          });
+          saveReceivedBlessings();
+          updateBlessingBadge();
+          updateSceneHud();
+          scene4MeteorPool = blessingsInScene(4).map(function (x) { return normalizeBlessing(x); });
+          scene4Meteors = [];
+          scene4Hearts = [];
+          scene4Bombs = [];
+          scene4MeteorSpawnTimer = 0.2;
+          scene4HeartSpawnTimer = 1.0;
+          scene4BombSpawnTimer = 1.0;
+          scene4PromptShownAt = 0;
+          scene4CompletionShown = false;
+          scene4DeferUntilComplete = false;
+          showScene4BombHitModal();
         }
 
         function spawnScene4Meteor() {
@@ -4844,6 +5116,41 @@
           });
         }
 
+        function spawnScene4Bomb() {
+          var x0 = -34 + Math.random() * (W * 0.46);
+          scene4Bombs.push({
+            x: x0,
+            y: -28,
+            vx: 60 + Math.random() * 36,
+            vy: 206 + Math.random() * 72,
+            sz: 12 + Math.random() * 4,
+            spin: Math.random() * Math.PI * 2,
+            sv: (Math.random() < 0.5 ? -1 : 1) * (1.6 + Math.random() * 1.1),
+          });
+        }
+
+        function showScene4BombHitModal() {
+          if (!wishCatchRoot || !wishCatchTitle || !wishCatchMeta || !wishCatchPrimaryBtn || !wishCatchSecondaryBtn || !wishCatchList) return;
+          var target = getSceneTargetCount(4);
+          wishCatchRoot.dataset.mode = "bomb";
+          wishCatchTitle.textContent = "踩到炸弹了哈哈哈";
+          if (scene4FreePlayMode) {
+            wishCatchMeta.textContent =
+              "砰！娱乐模式下不会扣祝福进度，但你的接星数量被炸回 0 了。\n继续接流星/爱心冲更高数量吧。";
+          } else {
+            wishCatchMeta.textContent =
+              "砰！进度被炸回起点啦～\n已接到的流星与爱心都清零了。\n想通关就继续接流星/爱心，同时小心躲开炸弹（0 / " +
+              target +
+              "）。";
+          }
+          wishCatchList.hidden = true;
+          wishCatchList.textContent = "";
+          wishCatchPrimaryBtn.textContent = "不服，再来";
+          wishCatchSecondaryBtn.textContent = "去下一关";
+          wishCatchRoot.hidden = false;
+          syncBodyModalChromeClass();
+        }
+
         function tickScene4MeteorTask(dt) {
           if (currentScene !== 4) return;
           if (blockingOverlaysForInput()) return;
@@ -4851,14 +5158,21 @@
           var grassY = H * 0.83;
           scene4MeteorSpawnTimer -= sec;
           scene4HeartSpawnTimer -= sec;
+          scene4BombSpawnTimer -= sec;
           var cap = Math.min(6, 2 + ((W / 280) | 0));
           if (scene4MeteorSpawnTimer <= 0 && scene4Meteors.length < cap && scene4MeteorPool.length) {
             spawnScene4Meteor();
             scene4MeteorSpawnTimer = 0.42 + Math.random() * 0.34;
           }
-          if (scene4HeartSpawnTimer <= 0 && scene4Hearts.length < 1 && scene4MeteorPool.length) {
+          var heartCap = scene4FreePlayMode ? 3 : 2;
+          var bombCap = scene4FreePlayMode ? 2 : 2;
+          if (scene4HeartSpawnTimer <= 0 && scene4Hearts.length < heartCap && scene4MeteorPool.length) {
             spawnScene4Heart();
-            scene4HeartSpawnTimer = 4.8 + Math.random() * 0.5;
+            scene4HeartSpawnTimer = scene4FreePlayMode ? 1.4 + Math.random() * 0.35 : 2.2 + Math.random() * 0.5;
+          }
+          if (scene4BombSpawnTimer <= 0 && scene4Bombs.length < bombCap) {
+            spawnScene4Bomb();
+            scene4BombSpawnTimer = scene4FreePlayMode ? 1.6 + Math.random() * 0.5 : 2.1 + Math.random() * 0.65;
           }
           var py = ponyY();
           for (var i = scene4Meteors.length - 1; i >= 0; i--) {
@@ -4885,6 +5199,18 @@
               continue;
             }
             if (hh.y >= grassY || hh.x < -120 || hh.x > W + 120) scene4Hearts.splice(h, 1);
+          }
+          for (var b = scene4Bombs.length - 1; b >= 0; b--) {
+            var bb = scene4Bombs[b];
+            bb.x += bb.vx * sec;
+            bb.y += bb.vy * sec;
+            bb.spin += bb.sv * sec;
+            if (Math.abs(bb.x - ponyScreenX) <= 36 && Math.abs(bb.y - (py - 20)) <= 36) {
+              scene4Bombs.splice(b, 1);
+              resetScene4ProgressByBomb();
+              return;
+            }
+            if (bb.y >= grassY || bb.x < -140 || bb.x > W + 140) scene4Bombs.splice(b, 1);
           }
         }
 
@@ -4917,6 +5243,36 @@
             ctx.bezierCurveTo(-1, -14, 1, -11, 0, -8);
             ctx.bezierCurveTo(1, -11, 5, -14, 9, -10);
             ctx.bezierCurveTo(14, -6, 9, 1, 0, 6);
+            ctx.fill();
+            ctx.restore();
+          }
+          for (var b = 0; b < scene4Bombs.length; b++) {
+            var bb = scene4Bombs[b];
+            var r = bb.sz;
+            ctx.save();
+            ctx.translate(bb.x, bb.y);
+            ctx.rotate(bb.spin);
+            ctx.fillStyle = "rgba(48, 55, 64, 0.95)";
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(250, 250, 250, 0.9)";
+            ctx.lineWidth = 1.3;
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.45, 0);
+            ctx.lineTo(r * 0.45, 0);
+            ctx.moveTo(0, -r * 0.45);
+            ctx.lineTo(0, r * 0.45);
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(255, 164, 124, 0.95)";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(0, -r - 1);
+            ctx.lineTo(0, -r - 8);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(255, 192, 0, 0.95)";
+            ctx.beginPath();
+            ctx.arc(0, -r - 10, 2.2, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
           }
@@ -5458,7 +5814,7 @@
             )
           )
             return;
-          window.location.href = "cake.html";
+          window.location.href = "cake.html?v=20260414-hotfix-audio";
         }
 
         function pickBlessing() {
@@ -5604,6 +5960,13 @@
           }
           if (currentScene === 2) {
             return { id: 2, name: "sunset_fixed", t: 0.78, _scene2Sunset: true };
+          }
+          if (currentScene === 3) {
+            // 第三关强制日落动态：与第二关、步数昼夜循环完全解耦
+            var nowSec = performance.now() * 0.001;
+            var wave = 0.5 + 0.5 * Math.sin(nowSec * 0.26);
+            var t3 = 0.56 + wave * 0.34; // 始终落在日落区间
+            return { id: 2, name: "sunset_scene3_fixed", t: t3, _scene3Sunset: true };
           }
           if (currentScene === 4) {
             return { id: 3, name: "wish_night", t: 1, _wishNight: true };
@@ -6290,9 +6653,16 @@
             hill1 = "#5aa86a";
             hill2 = "#3d9d5c";
           } else if (ph.id === 2) {
-            top = lerpColor("#ffb088", "#7a5aa8", ph.t);
-            mid = lerpColor("#ff9a6b", "#9b7bc8", ph.t);
-            bot = lerpColor("#c87850", "#5a4880", ph.t);
+            if (ph._scene3Sunset) {
+              // 第三关固定为浅橙红日落，不走紫色调
+              top = lerpColor("#ffdcbf", "#ffb37f", ph.t);
+              mid = lerpColor("#ffc79f", "#ff9868", ph.t);
+              bot = lerpColor("#ffb487", "#e77a55", ph.t);
+            } else {
+              top = lerpColor("#ffb088", "#7a5aa8", ph.t);
+              mid = lerpColor("#ff9a6b", "#9b7bc8", ph.t);
+              bot = lerpColor("#c87850", "#5a4880", ph.t);
+            }
             hill1 = "#5a7058";
             hill2 = "#4a5560";
           } else {
@@ -6813,18 +7183,60 @@
           return best;
         }
 
-        function spawnGoldenStarBurst() {
-          goldenStars = [];
-          for (var i = 0; i < 14; i++) {
+        function spawnGoldenStarBurst(opts) {
+          opts = opts || {};
+          var count = opts.count != null ? opts.count : 14;
+          var spreadX = opts.spreadX != null ? opts.spreadX : 220;
+          var upMin = opts.upMin != null ? opts.upMin : 80;
+          var upMax = opts.upMax != null ? opts.upMax : 200;
+          var anchorX = opts.x != null ? opts.x : ponyScreenX;
+          var anchorY = opts.y != null ? opts.y : H * 0.42;
+          if (!opts.keepExisting) goldenStars = [];
+          for (var i = 0; i < count; i++) {
             goldenStars.push({
-              x: ponyScreenX,
-              y: H * 0.42,
-              vx: (Math.random() - 0.5) * 220,
-              vy: -80 - Math.random() * 120,
+              x: anchorX,
+              y: anchorY,
+              vx: (Math.random() - 0.5) * spreadX,
+              vy: -(upMin + Math.random() * Math.max(1, upMax - upMin)),
               life: 1,
               t0: performance.now(),
             });
           }
+        }
+
+        function spawnScene2LoveFireworks() {
+          var cx = ponyScreenX || W * 0.5;
+          var cy = H * 0.36;
+          spawnGoldenStarBurst({
+            x: cx,
+            y: cy,
+            count: 40,
+            spreadX: 520,
+            upMin: 110,
+            upMax: 280,
+          });
+          setTimeout(function () {
+            spawnGoldenStarBurst({
+              x: cx - 36,
+              y: cy - 14,
+              keepExisting: true,
+              count: 32,
+              spreadX: 470,
+              upMin: 120,
+              upMax: 300,
+            });
+          }, 190);
+          setTimeout(function () {
+            spawnGoldenStarBurst({
+              x: cx + 40,
+              y: cy - 8,
+              keepExisting: true,
+              count: 28,
+              spreadX: 440,
+              upMin: 100,
+              upMax: 260,
+            });
+          }, 380);
         }
 
         function tickGoldenStars(dt) {
@@ -6897,13 +7309,7 @@
 
           if (t === "video" && data.video) {
             hasMedia = true;
-            var vid = document.createElement("video");
-            vid.controls = true;
-            vid.playsInline = true;
-            vid.setAttribute("playsinline", "");
-            vid.preload = "metadata";
-            vid.src = data.video;
-            modalMedia.appendChild(vid);
+            appendOptimizedVideo(modalMedia, data.video, {});
           } else if (t === "audio" && data.audio) {
             hasMedia = true;
             var aud = document.createElement("audio");
@@ -7602,6 +8008,14 @@
               closeScene4WishModal();
               return;
             }
+            if (mode === "scene_review") {
+              closeScene4WishModal();
+              return;
+            }
+            if (mode === "bomb") {
+              closeScene4WishModal();
+              return;
+            }
             if (mode === "complete") {
               showScene4WishListModal();
             }
@@ -7635,6 +8049,17 @@
               switchScene(5);
               return;
             }
+            if (wishCatchRoot && (wishCatchRoot.dataset.mode || "") === "scene_review") {
+              var rsid = parseInt(wishCatchRoot.dataset.reviewSid || "0", 10);
+              closeScene4WishModal();
+              if (!isNaN(rsid) && rsid >= 1 && rsid < SCENE_COUNT) switchScene(rsid + 1);
+              return;
+            }
+            if (wishCatchRoot && (wishCatchRoot.dataset.mode || "") === "bomb") {
+              closeScene4WishModal();
+              switchScene(5);
+              return;
+            }
             closeScene4WishModal();
           });
         }
@@ -7659,9 +8084,17 @@
             e.preventDefault();
             e.stopPropagation();
             markAllDoneHonorShown();
-            if (honorRoot) honorRoot.hidden = true;
-            syncBodyModalChromeClass();
-            window.location.href = "cake.html";
+            if (honorLikeBtn) honorLikeBtn.disabled = true;
+            if (honorRedirectTimer) {
+              clearTimeout(honorRedirectTimer);
+              honorRedirectTimer = null;
+            }
+            // 点赞页停留 6 秒后自动跳转蛋糕页
+            honorRedirectTimer = setTimeout(function () {
+              if (honorRoot) honorRoot.hidden = true;
+              syncBodyModalChromeClass();
+              window.location.href = "cake.html?v=20260414-hotfix-audio";
+            }, 6000);
           });
         }
 
@@ -7752,11 +8185,14 @@
               roadside = [];
               scene4Meteors = [];
               scene4Hearts = [];
+              scene4Bombs = [];
               scene4MeteorPool = [];
               scene4HeartSpawnTimer = 0;
+              scene4BombSpawnTimer = 0;
               if (v === 4) initScene4MeteorTask();
               updateSceneHud();
               showSceneGuideTip(v);
+              maybeShowSceneCollectedReviewOnReenter(v);
             }
             entryGateRoot.hidden = true;
             syncBodyModalChromeClass();
@@ -7803,7 +8239,7 @@
             e.preventDefault();
             e.stopPropagation();
             closeSceneMilestoneModal(true);
-            window.location.href = "cake.html";
+            window.location.href = "cake.html?v=20260414-hotfix-audio";
           });
         }
         function onReadAllShortcutClick(e) {

@@ -220,6 +220,7 @@
       .float-line {
         position: absolute;
         left: 0;
+        top: 0;
         max-width: min(92vw, 420px);
         padding: 8px 14px;
         border-radius: 14px;
@@ -227,22 +228,12 @@
         color: var(--ink);
         font-size: clamp(12px, 3.2vw, 14px);
         line-height: 1.4;
-        animation: floatUp 12s linear forwards;
         border: 1px solid rgba(45, 122, 82, 0.2);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-      }
-      @keyframes floatUp {
-        from {
-          transform: translateY(110vh);
-          opacity: 0;
-        }
-        8% {
-          opacity: 1;
-        }
-        100% {
-          transform: translateY(-20vh);
-          opacity: 0.35;
-        }
+        white-space: nowrap;
+        transform: translateX(105vw);
+        opacity: 0.95;
+        will-change: transform;
       }
       /* iPhone 16 Pro Max 等大屏手机适配 */
       @media (max-width: 460px) and (min-height: 880px) {
@@ -368,8 +359,16 @@
     <script>
       (function () {
         "use strict";
-
-        var LS_KEY_RECEIVED = "xmgrassland_v1_receivedBlessings";
+        var CAKE_PAGE_BUILD = "20260414-hotfix-audio";
+        try {
+          var qs = new URLSearchParams(window.location.search || "");
+          if (!qs.get("v")) {
+            qs.set("v", CAKE_PAGE_BUILD);
+            var nextUrl = window.location.pathname + "?" + qs.toString() + window.location.hash;
+            window.location.replace(nextUrl);
+            return;
+          }
+        } catch (eUrl) {}
 
         /** 长信：按句拆分，可整段替换为你们的正文 */
         var LONG_LETTER_LINES = [
@@ -391,7 +390,7 @@
         var audioHint = document.getElementById("audioHint");
 
         /** 生日页 BGM：每次加载都带时间戳，强制规避缓存 */
-        var BGM_SRC_BASE = "content/happy-birthday.mp3";
+        var BGM_SRC_BASE = "content/happybirthday.aac";
         var BGM_SRC = BGM_SRC_BASE + "?v=" + Date.now();
         /** 生日页弹幕专用数据源（与主站祝福库解耦） */
         var BARRAGE_CSV_SRC = "content/cake-barrage.csv";
@@ -438,6 +437,8 @@
         var candlesOut = false;
         var letterIndex = 0;
         var floatStarted = false;
+        var floatSpawnIv = null;
+        var floatStopTimer = null;
         var lastT = 0;
         var bgmFadeTimer = null;
         var bgmHasStarted = false;
@@ -657,26 +658,114 @@
           loadBlessingTexts().then(function (texts) {
             if (!texts || !texts.length) texts = EMBEDDED_BARRAGE_TEXTS.slice();
             var i = 0;
+            var laneHeight = 42;
+            var topPad = 88;
+            var bottomPad = 28;
+            var usableH = Math.max(220, window.innerHeight - topPad - bottomPad);
+            var laneCount = Math.max(7, Math.min(14, Math.floor(usableH / laneHeight)));
+            var laneFreeAt = [];
+            for (var li = 0; li < laneCount; li++) laneFreeAt.push(0);
+
+            function pickLane(nowMs) {
+              var best = 0;
+              var bestAt = laneFreeAt[0];
+              for (var k = 1; k < laneCount; k++) {
+                if (laneFreeAt[k] < bestAt) {
+                  bestAt = laneFreeAt[k];
+                  best = k;
+                }
+              }
+              for (var j = 0; j < laneCount; j++) {
+                if (laneFreeAt[j] <= nowMs) return j;
+              }
+              return best;
+            }
+
             function spawnOne() {
+              if (!floatLayer) return;
+              var nowMs = Date.now();
+              var lane = pickLane(nowMs);
               var el = document.createElement("div");
               el.className = "float-line";
               el.textContent = texts[i % texts.length];
-              el.style.left = Math.random() * 78 + "%";
-              el.style.animationDuration = 10 + Math.random() * 8 + "s";
+              el.style.top = topPad + lane * laneHeight + "px";
               floatLayer.appendChild(el);
-              setTimeout(function () {
+              var width = Math.ceil(el.getBoundingClientRect().width || 200);
+              var speed = 78 + Math.random() * 32;
+              var travel = window.innerWidth + width + 80;
+              var durationMs = (travel / speed) * 1000;
+              var safeGap = 72;
+              laneFreeAt[lane] = nowMs + ((width + safeGap) / speed) * 1000;
+              el.style.transition = "transform " + durationMs + "ms linear, opacity 520ms linear";
+              requestAnimationFrame(function () {
+                el.style.transform = "translateX(" + (-width - 80) + "px)";
+                el.style.opacity = "0.82";
+              });
+              var removeTimer = setTimeout(function () {
                 try {
                   el.remove();
                 } catch (e) {}
-              }, 15000);
+              }, durationMs + 300);
+              el.addEventListener(
+                "transitionend",
+                function () {
+                  clearTimeout(removeTimer);
+                  try {
+                    el.remove();
+                  } catch (e2) {}
+                },
+                { once: true }
+              );
               i++;
             }
-            spawnOne();
-            var iv = setInterval(spawnOne, 2200);
-            setTimeout(function () {
-              clearInterval(iv);
-            }, Math.min(120000, 2000 + texts.length * 2500));
+            for (var warm = 0; warm < laneCount * 2; warm++) {
+              setTimeout(spawnOne, warm * 130);
+            }
+            floatSpawnIv = setInterval(spawnOne, 560);
+            floatStopTimer = setTimeout(function () {
+              if (floatSpawnIv) {
+                clearInterval(floatSpawnIv);
+                floatSpawnIv = null;
+              }
+            }, Math.min(180000, 42000 + texts.length * 2200));
           });
+        }
+
+        function resetCakeFlowToFirstOpen() {
+          candlesOut = false;
+          letterIndex = 0;
+          floatStarted = false;
+          particles = [];
+          if (floatSpawnIv) {
+            clearInterval(floatSpawnIv);
+            floatSpawnIv = null;
+          }
+          if (floatStopTimer) {
+            clearTimeout(floatStopTimer);
+            floatStopTimer = null;
+          }
+          if (bgmFadeTimer) {
+            clearInterval(bgmFadeTimer);
+            bgmFadeTimer = null;
+          }
+          bgmHasStarted = false;
+          if (audioHint) audioHint.hidden = true;
+          if (letterOverlay) letterOverlay.hidden = true;
+          if (letterStream) letterStream.innerHTML = "";
+          if (letterNextBtn) letterNextBtn.textContent = "下一句";
+          if (floatLayer) floatLayer.innerHTML = "";
+          if (cakeBtn) {
+            cakeBtn.disabled = false;
+            var flames = cakeBtn.querySelectorAll(".flame");
+            for (var i = 0; i < flames.length; i++) flames[i].classList.remove("off");
+          }
+          if (cakeBgm) {
+            try {
+              cakeBgm.pause();
+              cakeBgm.currentTime = 0;
+              cakeBgm.volume = 0;
+            } catch (eBgm) {}
+          }
         }
 
         cakeBtn.addEventListener("click", function () {
@@ -701,6 +790,11 @@
         );
 
         window.addEventListener("resize", resize);
+        window.addEventListener("pageshow", function () {
+          // 处理手机端返回缓存：每次进入生日页都强制视为首次打开
+          resetCakeFlowToFirstOpen();
+        });
+        resetCakeFlowToFirstOpen();
         resize();
         requestAnimationFrame(frame);
       })();
