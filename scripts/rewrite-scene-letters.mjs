@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** 若默认 CSV 被本机占用（EBUSY），则写入此备用路径并在控制台提示改 index 的 BLESSINGS_CSV_URL */
-const csvPath = path.join(__dirname, "..", "content", "content-import001(1).csv");
-const csvFallback = path.join(__dirname, "..", "content", "blessings-scene-aj.csv");
+const csvPath = path.join(__dirname, "..", "content", "blessings-test-five-plates.csv");
+const csvFallback = path.join(__dirname, "..", "content", ".content-import001-rewrite-tmp.csv");
 
 function parseCSVLine(line) {
   const out = [];
@@ -71,9 +71,9 @@ try {
   if (e && (e.code === "EBUSY" || e.code === "EPERM")) {
     fs.writeFileSync(csvFallback, body, "utf8");
     console.warn("原 CSV 被占用，已写入:", path.relative(process.cwd(), csvFallback));
-    console.warn("请在 index.html 将 BLESSINGS_CSV_URL 改为指向该文件，或关闭占用后重跑本脚本。");
+    console.warn("请关闭占用后将临时文件内容覆盖回主 CSV。");
   } else {
     throw e;
   }
 }
-console.log("场景列已按编号改为 A–J（1–100→A … 901–1000→J）。");
+console.log("场景列已按编号改为 A–E（1–100→A … 401–500→E，超出会继续顺延）。");

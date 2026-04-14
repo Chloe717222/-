@@ -244,6 +244,39 @@
           opacity: 0.35;
         }
       }
+      /* iPhone 16 Pro Max 等大屏手机适配 */
+      @media (max-width: 460px) and (min-height: 880px) {
+        .wrap {
+          width: min(100%, 430px);
+          margin-inline: auto;
+          gap: 16px;
+          padding-top: calc(max(18px, env(safe-area-inset-top, 0px)) + 4px);
+          padding-bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 8px);
+        }
+        h1 {
+          font-size: clamp(30px, 8vw, 40px);
+        }
+        .sub {
+          font-size: clamp(15px, 4.1vw, 18px);
+        }
+        .cake-stage {
+          width: min(340px, 82vw);
+        }
+        .cake-svg {
+          width: min(310px, 78vw);
+        }
+        .letter-card {
+          max-width: 430px;
+          padding: 24px 18px 18px;
+        }
+        .letter-actions button {
+          min-height: 50px;
+          font-size: 17px;
+        }
+        .float-line {
+          font-size: 15px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -357,10 +390,42 @@
         var cakeBgm = document.getElementById("cakeBgm");
         var audioHint = document.getElementById("audioHint");
 
-        /** 与仓库 content/happy-birthday.mp3 一致（根目录打开 cake.html 时路径相对本页） */
-        var BGM_SRC = "content/happy-birthday.mp3";
+        /** 生日页 BGM：每次加载都带时间戳，强制规避缓存 */
+        var BGM_SRC_BASE = "content/happy-birthday.mp3";
+        var BGM_SRC = BGM_SRC_BASE + "?v=" + Date.now();
+        /** 生日页弹幕专用数据源（与主站祝福库解耦） */
+        var BARRAGE_CSV_SRC = "content/cake-barrage.csv";
+        /** file:// 打开时 fetch 本地 CSV 往往会被浏览器拦截，这里提供同内容兜底 */
+        var EMBEDDED_BARRAGE_TEXTS = [
+          "恋姐生日快乐-@草原来信1001",
+          "恋姐生日快乐-@风铃小队1002",
+          "恋姐生日快乐-@晚霞旅人1003",
+          "恋姐生日快乐-@星光驿站1004",
+          "恋姐生日快乐-@软乎乎补给站1005",
+          "恋姐生日快乐-@流星接收员1006",
+          "恋姐生日快乐-@纸条穿越者1007",
+          "恋姐生日快乐-@时光胶囊客1008",
+          "恋姐生日快乐-@恋姐应援团1009",
+          "恋姐生日快乐-@小马草原1010",
+          "恋姐生日快乐-@晴天邮差1011",
+          "恋姐生日快乐-@夜空守望者1012",
+          "恋姐生日快乐-@薄荷风朋友1013",
+          "恋姐生日快乐-@云朵收藏家1014",
+          "恋姐生日快乐-@愿望投递员1015",
+          "恋姐生日快乐-@生日灯光组1016",
+          "恋姐生日快乐-@草地散步者1017",
+          "恋姐生日快乐-@晚风签收员1018",
+          "恋姐生日快乐-@软糖祝福员1019",
+          "恋姐生日快乐-@流星打卡人1020",
+        ];
         if (cakeBgm) {
           cakeBgm.src = BGM_SRC;
+          cakeBgm.addEventListener("error", function () {
+            if (audioHint) {
+              audioHint.hidden = false;
+              audioHint.textContent = "音乐加载失败，请检查 content/happy-birthday.mp3";
+            }
+          });
           try {
             cakeBgm.load();
           } catch (e) {}
@@ -374,6 +439,10 @@
         var letterIndex = 0;
         var floatStarted = false;
         var lastT = 0;
+        var bgmFadeTimer = null;
+        var bgmHasStarted = false;
+        var BGM_TARGET_VOLUME = 0.22;
+        var BGM_FADE_MS = 2200;
 
         function resize() {
           dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -449,13 +518,48 @@
           requestAnimationFrame(frame);
         }
 
+        function startBgmFadeIn() {
+          if (!cakeBgm) return;
+          if (bgmFadeTimer) {
+            clearInterval(bgmFadeTimer);
+            bgmFadeTimer = null;
+          }
+          var started = performance.now();
+          bgmFadeTimer = setInterval(function () {
+            if (!cakeBgm) {
+              clearInterval(bgmFadeTimer);
+              bgmFadeTimer = null;
+              return;
+            }
+            var t = (performance.now() - started) / BGM_FADE_MS;
+            var v = Math.max(0, Math.min(1, t)) * BGM_TARGET_VOLUME;
+            try {
+              cakeBgm.volume = v;
+            } catch (e1) {}
+            if (t >= 1) {
+              clearInterval(bgmFadeTimer);
+              bgmFadeTimer = null;
+            }
+          }, 60);
+        }
+
         function tryPlayBgm() {
           if (!cakeBgm) return;
+          if (bgmHasStarted) return;
+          bgmHasStarted = true;
+          try {
+            cakeBgm.volume = 0;
+          } catch (e0) {}
           var p = cakeBgm.play();
           if (p && typeof p.then === "function") {
-            p.catch(function () {
+            p.then(function () {
+              startBgmFadeIn();
+            }).catch(function () {
+              bgmHasStarted = false;
               audioHint.hidden = false;
             });
+          } else {
+            startBgmFadeIn();
           }
         }
 
@@ -494,48 +598,85 @@
           startFloatingBlessings();
         }
 
-        function loadBlessingTexts() {
-          try {
-            var raw = localStorage.getItem(LS_KEY_RECEIVED);
-            if (!raw) return [];
-            var arr = JSON.parse(raw);
-            if (!Array.isArray(arr)) return [];
-            var lines = [];
-            for (var i = 0; i < arr.length; i++) {
-              var t = (arr[i].text || "").trim();
-              if (t) lines.push(t);
+        function parseCsvLine(line) {
+          var out = [];
+          var cur = "";
+          var inQ = false;
+          for (var i = 0; i < line.length; i++) {
+            var c = line.charAt(i);
+            if (c === '"') {
+              if (inQ && i + 1 < line.length && line.charAt(i + 1) === '"') {
+                cur += '"';
+                i++;
+              } else {
+                inQ = !inQ;
+              }
+            } else if (c === "," && !inQ) {
+              out.push(cur);
+              cur = "";
+            } else {
+              cur += c;
             }
-            return lines;
-          } catch (e) {
-            return [];
           }
+          out.push(cur);
+          return out;
+        }
+
+        function loadBlessingTexts() {
+          if (location.protocol === "file:") {
+            return Promise.resolve(EMBEDDED_BARRAGE_TEXTS.slice());
+          }
+          var url = BARRAGE_CSV_SRC + "?v=" + Date.now();
+          return fetch(url, { cache: "no-store", credentials: "same-origin" })
+            .then(function (resp) {
+              if (!resp.ok) return "";
+              return resp.text();
+            })
+            .then(function (text) {
+              text = String(text || "").replace(/^\uFEFF/, "");
+              var lines = text.split(/\r?\n/).filter(function (ln) {
+                return ln.trim().length > 0;
+              });
+              if (lines.length < 2) return [];
+              var out = [];
+              for (var i = 1; i < lines.length; i++) {
+                var row = parseCsvLine(lines[i]);
+                var t = (row[0] || "").trim();
+                if (t) out.push(t);
+              }
+              return out;
+            })
+            .catch(function () {
+              return EMBEDDED_BARRAGE_TEXTS.slice();
+            });
         }
 
         function startFloatingBlessings() {
           if (floatStarted) return;
           floatStarted = true;
-          var texts = loadBlessingTexts();
-          if (!texts.length) texts = ["愿你所行皆坦途，所遇皆温柔。"];
-          var i = 0;
-          function spawnOne() {
-            var el = document.createElement("div");
-            el.className = "float-line";
-            el.textContent = texts[i % texts.length];
-            el.style.left = Math.random() * 78 + "%";
-            el.style.animationDuration = 10 + Math.random() * 8 + "s";
-            floatLayer.appendChild(el);
+          loadBlessingTexts().then(function (texts) {
+            if (!texts || !texts.length) texts = EMBEDDED_BARRAGE_TEXTS.slice();
+            var i = 0;
+            function spawnOne() {
+              var el = document.createElement("div");
+              el.className = "float-line";
+              el.textContent = texts[i % texts.length];
+              el.style.left = Math.random() * 78 + "%";
+              el.style.animationDuration = 10 + Math.random() * 8 + "s";
+              floatLayer.appendChild(el);
+              setTimeout(function () {
+                try {
+                  el.remove();
+                } catch (e) {}
+              }, 15000);
+              i++;
+            }
+            spawnOne();
+            var iv = setInterval(spawnOne, 2200);
             setTimeout(function () {
-              try {
-                el.remove();
-              } catch (e) {}
-            }, 15000);
-            i++;
-          }
-          spawnOne();
-          var iv = setInterval(spawnOne, 2200);
-          setTimeout(function () {
-            clearInterval(iv);
-          }, Math.min(120000, 2000 + texts.length * 2500));
+              clearInterval(iv);
+            }, Math.min(120000, 2000 + texts.length * 2500));
+          });
         }
 
         cakeBtn.addEventListener("click", function () {

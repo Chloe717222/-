@@ -10,8 +10,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const REQUIRED_ROOT = ["index.html", "cake.html"];
 /** 与 index.html 中 BLESSINGS_CSV_CANDIDATES 顺序一致，至少须存在其一 */
 const CSV_CANDIDATES = [
-  "content/blessings-scene-aj.csv",
-  "content/content-import001(1).csv",
+  "content/blessings-test-five-plates.csv",
 ];
 const BGM_REL = "content/happy-birthday.mp3";
 /** 常见误操作：把某条祝福语音复制成生日 BGM 文件名 */

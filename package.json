@@ -1,0 +1,7 @@
+{
+  "name": "pony-grassland",
+  "private": true,
+  "scripts": {
+    "sync:data": "node scripts/sync-test-datasets.mjs"
+  }
+}
