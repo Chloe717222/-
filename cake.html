@@ -221,7 +221,7 @@
         position: absolute;
         left: 0;
         top: 0;
-        max-width: min(92vw, 420px);
+        max-width: min(90vw, 320px);
         padding: 8px 14px;
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.92);
@@ -230,9 +230,11 @@
         line-height: 1.4;
         border: 1px solid rgba(45, 122, 82, 0.2);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
         opacity: 0.95;
-        will-change: left, opacity;
+        will-change: top, left, transform, opacity;
+        transform-origin: center center;
       }
       /* iPhone 16 Pro Max 等大屏手机适配 */
       @media (max-width: 460px) and (min-height: 880px) {
@@ -454,6 +456,11 @@
         var floatStarted = false;
         var floatSpawnIv = null;
         var floatStopTimer = null;
+        var barrageItems = [];
+        var barrageTexts = [];
+        var barrageTextIdx = 0;
+        var barrageSpawnAccumMs = 0;
+        var barrageActive = false;
         var lastT = 0;
         var bgmFadeTimer = null;
         var bgmHasStarted = false;
@@ -524,12 +531,102 @@
           }
         }
 
+        function boxesOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+          return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+        }
+
+        function trySpawnBarrageOne() {
+          if (!floatLayer || !barrageActive) return;
+          if (!barrageTexts || !barrageTexts.length) return;
+          var text = barrageTexts[barrageTextIdx % barrageTexts.length];
+          barrageTextIdx++;
+          var el = document.createElement("div");
+          el.className = "float-line";
+          el.textContent = text;
+          el.style.left = "0px";
+          el.style.top = "0px";
+          el.style.opacity = "0.94";
+          floatLayer.appendChild(el);
+          var rect = el.getBoundingClientRect();
+          var bw = Math.max(110, Math.ceil(rect.width || 160));
+          var bh = Math.max(28, Math.ceil(rect.height || 34));
+          var sidePad = 10;
+          var minGap = 14;
+          var xMin = sidePad;
+          var xMax = Math.max(sidePad, W - sidePad - bw);
+          var spawnY = H + 8 + Math.random() * 14;
+          var speed = 64 + Math.random() * 34; // 每条独立随机上升速度
+          var pickedX = xMin;
+          var ok = false;
+          for (var t = 0; t < 32; t++) {
+            var x = xMin + Math.random() * Math.max(1, xMax - xMin);
+            var clash = false;
+            for (var i = 0; i < barrageItems.length; i++) {
+              var it = barrageItems[i];
+              // 仅检查屏幕底部附近弹幕，避免新弹幕一出生就重叠
+              if (it.y > H * 0.76 && boxesOverlap(x, spawnY, bw, bh + minGap, it.x, it.y, it.w, it.h + minGap)) {
+                clash = true;
+                break;
+              }
+            }
+            if (!clash) {
+              pickedX = x;
+              ok = true;
+              break;
+            }
+          }
+          if (!ok && barrageItems.length > 8) {
+            // 拥挤时放弃本次，下一帧再试，避免硬塞导致覆盖
+            try {
+              el.remove();
+            } catch (eRm) {}
+            return;
+          }
+          el.style.left = Math.round(pickedX) + "px";
+          el.style.top = Math.round(spawnY) + "px";
+          barrageItems.push({
+            el: el,
+            x: pickedX,
+            y: spawnY,
+            w: bw,
+            h: bh,
+            speed: speed,
+          });
+        }
+
+        function tickBarrage(dt) {
+          if (!barrageActive) return;
+          barrageSpawnAccumMs += dt;
+          // 约 8 条 / 秒
+          while (barrageSpawnAccumMs >= 125) {
+            barrageSpawnAccumMs -= 125;
+            trySpawnBarrageOne();
+          }
+          var sec = dt / 1000;
+          for (var i = barrageItems.length - 1; i >= 0; i--) {
+            var it = barrageItems[i];
+            it.y -= it.speed * sec;
+            if (!it.el) {
+              barrageItems.splice(i, 1);
+              continue;
+            }
+            it.el.style.top = Math.round(it.y) + "px";
+            if (it.y + it.h < -26) {
+              try {
+                it.el.remove();
+              } catch (eDel) {}
+              barrageItems.splice(i, 1);
+            }
+          }
+        }
+
         function frame(t) {
           if (!lastT) lastT = t;
           var dt = Math.min(40, t - lastT);
           lastT = t;
-          if (Math.random() < 0.065) spawnFirework();
+          if (candlesOut && Math.random() < 0.065) spawnFirework();
           tickParticles(dt);
+          tickBarrage(dt);
           drawParticles();
           requestAnimationFrame(frame);
         }
@@ -656,7 +753,7 @@
             return Promise.resolve(EMBEDDED_BARRAGE_TEXTS.slice());
           }
           var url = BARRAGE_CSV_SRC + "?v=" + Date.now();
-          return fetch(url, { cache: "no-store", credentials: "same-origin" })
+          var fetchPromise = fetch(url, { cache: "no-store", credentials: "same-origin" })
             .then(function (resp) {
               if (!resp.ok) return "";
               return resp.text();
@@ -676,87 +773,33 @@
               return out;
             })
             .catch(function () {
-              return EMBEDDED_BARRAGE_TEXTS.slice();
+              return [];
             });
+          var timeoutPromise = new Promise(function (resolve) {
+            setTimeout(function () {
+              resolve(EMBEDDED_BARRAGE_TEXTS.slice());
+            }, 1200);
+          });
+          return Promise.race([fetchPromise, timeoutPromise]).then(function (arr) {
+            if (!arr || !arr.length) return EMBEDDED_BARRAGE_TEXTS.slice();
+            return arr;
+          });
         }
 
         function startFloatingBlessings() {
           if (floatStarted) return;
           floatStarted = true;
+          barrageActive = true;
+          barrageSpawnAccumMs = 0;
+          barrageTextIdx = 0;
+          barrageItems = [];
+          if (floatLayer) floatLayer.innerHTML = "";
           loadBlessingTexts().then(function (texts) {
             if (!texts || !texts.length) texts = EMBEDDED_BARRAGE_TEXTS.slice();
-            var i = 0;
-            var laneHeight = 42;
-            var topPad = 88;
-            var bottomPad = 28;
-            var usableH = Math.max(220, window.innerHeight - topPad - bottomPad);
-            var laneCount = Math.max(7, Math.min(14, Math.floor(usableH / laneHeight)));
-            var laneFreeAt = [];
-            for (var li = 0; li < laneCount; li++) laneFreeAt.push(0);
-
-            function pickLane(nowMs) {
-              var best = 0;
-              var bestAt = laneFreeAt[0];
-              for (var k = 1; k < laneCount; k++) {
-                if (laneFreeAt[k] < bestAt) {
-                  bestAt = laneFreeAt[k];
-                  best = k;
-                }
-              }
-              for (var j = 0; j < laneCount; j++) {
-                if (laneFreeAt[j] <= nowMs) return j;
-              }
-              return best;
+            barrageTexts = texts.slice();
+            for (var warm = 0; warm < 10; warm++) {
+              setTimeout(trySpawnBarrageOne, warm * 90);
             }
-
-            function spawnOne() {
-              if (!floatLayer) return;
-              var nowMs = Date.now();
-              var lane = pickLane(nowMs);
-              var el = document.createElement("div");
-              el.className = "float-line";
-              el.textContent = texts[i % texts.length];
-              el.style.top = topPad + lane * laneHeight + "px";
-              floatLayer.appendChild(el);
-              var width = Math.ceil(el.getBoundingClientRect().width || 200);
-              var speed = 78 + Math.random() * 32;
-              var travel = window.innerWidth + width + 80;
-              var durationMs = (travel / speed) * 1000;
-              var safeGap = 72;
-              laneFreeAt[lane] = nowMs + ((width + safeGap) / speed) * 1000;
-              el.style.left = window.innerWidth + 24 + "px";
-              el.style.transition = "left " + durationMs + "ms linear, opacity 520ms linear";
-              requestAnimationFrame(function () {
-                el.style.left = -width - 80 + "px";
-                el.style.opacity = "0.82";
-              });
-              var removeTimer = setTimeout(function () {
-                try {
-                  el.remove();
-                } catch (e) {}
-              }, durationMs + 300);
-              el.addEventListener(
-                "transitionend",
-                function () {
-                  clearTimeout(removeTimer);
-                  try {
-                    el.remove();
-                  } catch (e2) {}
-                },
-                { once: true }
-              );
-              i++;
-            }
-            for (var warm = 0; warm < laneCount * 2; warm++) {
-              setTimeout(spawnOne, warm * 130);
-            }
-            floatSpawnIv = setInterval(spawnOne, 560);
-            floatStopTimer = setTimeout(function () {
-              if (floatSpawnIv) {
-                clearInterval(floatSpawnIv);
-                floatSpawnIv = null;
-              }
-            }, Math.min(180000, 42000 + texts.length * 2200));
           });
         }
 
@@ -783,6 +826,11 @@
           if (letterStream) letterStream.innerHTML = "";
           if (letterNextBtn) letterNextBtn.textContent = "下一句";
           if (floatLayer) floatLayer.innerHTML = "";
+          barrageItems = [];
+          barrageTexts = [];
+          barrageTextIdx = 0;
+          barrageSpawnAccumMs = 0;
+          barrageActive = false;
           if (cakeBtn) {
             cakeBtn.disabled = false;
             var flames = cakeBtn.querySelectorAll(".flame");
