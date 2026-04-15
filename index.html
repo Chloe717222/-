@@ -1306,54 +1306,6 @@
         line-height: 1.6;
         font-size: 14px;
       }
-      #honorRoot[hidden] {
-        display: none !important;
-      }
-      #honorRoot {
-        position: fixed;
-        inset: 0;
-        z-index: 122;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        background: #ffffff;
-      }
-      .honor-card {
-        width: 100vw;
-        height: 100dvh;
-        max-height: 100dvh;
-        overflow: hidden;
-        border-radius: 0;
-        border: none;
-        background: #ffffff;
-        box-shadow: none;
-        padding: max(16px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
-          max(16px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-      }
-      .honor-card h3 {
-        margin: 0 0 8px;
-        font-size: clamp(18px, 4.4vw, 22px);
-      }
-      .honor-card p {
-        margin: 0 0 10px;
-        line-height: 1.65;
-        color: var(--text-muted);
-      }
-      .honor-like-btn {
-        width: 100%;
-        border: none;
-        border-radius: 20px;
-        flex: 1;
-        min-height: 0;
-        cursor: pointer;
-        font-size: clamp(110px, 34vw, 260px);
-        background: #ffffff;
-        box-shadow: inset 0 0 0 1px rgba(28, 70, 50, 0.12);
-      }
       /** 平板 / 桌面：底栏略放宽 */
       /** 板块 1：大铃铛 + 下方完整祝福流，叠在与板块2 相同的草原画布上 */
       #plate1BellRoot[hidden] {
@@ -2197,7 +2149,7 @@
       }
       .scene3-food-prompt {
         margin: 0;
-        min-height: 52px;
+        min-height: 0;
         font-size: clamp(15px, 3.8vw, 18px);
         line-height: 1.55;
         color: var(--forest-mid);
@@ -2222,6 +2174,41 @@
         border: 1px solid rgba(60, 118, 86, 0.2);
         font-size: 14px;
         font-weight: 700;
+      }
+      .scene3-food-prompt-item--want {
+        border-color: rgba(34, 120, 72, 0.55);
+        background: rgba(214, 245, 224, 0.95);
+        box-shadow: 0 0 0 2px rgba(52, 160, 96, 0.28);
+      }
+      .scene3-food-prompt-tip {
+        font-size: clamp(12px, 3.2vw, 14px);
+        line-height: 1.55;
+        font-weight: 600;
+        color: var(--forest-mid);
+        margin-bottom: 8px;
+      }
+      .scene3-food-prompt-tip--answer {
+        margin-bottom: 0;
+        color: var(--text-muted);
+      }
+      .scene3-food-prompt-tip {
+        margin: 0 0 10px;
+        font-size: clamp(12px, 3.2vw, 13px);
+        line-height: 1.45;
+        font-weight: 700;
+        color: var(--forest-mid);
+      }
+      .scene3-food-prompt-item--want {
+        border-color: rgba(34, 120, 72, 0.55);
+        background: rgba(210, 245, 224, 0.75);
+        box-shadow: 0 0 0 1px rgba(34, 120, 72, 0.12);
+      }
+      .scene3-food-prompt-want-tag {
+        margin-left: 4px;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--accent);
+        white-space: nowrap;
       }
       .scene3-food-status {
         display: flex;
@@ -2466,7 +2453,19 @@
       }
       .scene5-all-window__actions {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
+        gap: 10px;
+      }
+      .scene5-all-window__replay {
+        min-height: 42px;
+        border: 1px solid rgba(30, 82, 56, 0.35);
+        border-radius: 10px;
+        background: rgba(255, 255, 253, 0.85);
+        color: var(--forest-mid);
+        font-size: 14px;
+        font-weight: 700;
+        padding: 0 16px;
       }
       .scene5-all-window__done {
         min-height: 42px;
@@ -3382,14 +3381,6 @@
         </button>
       </div>
     </div>
-    <div id="honorRoot" hidden role="dialog" aria-modal="true" aria-labelledby="honorTitle">
-      <div class="honor-card">
-        <h3 id="honorTitle">五关都走完了</h3>
-        <p>谢谢你愿意把每一站都读完、把每一份心意都收下。能陪你走到这里，我们也很开心——给你一个大大的赞。</p>
-        <button type="button" class="honor-like-btn" id="honorLikeBtn" aria-label="大大的赞">👍</button>
-      </div>
-    </div>
-
     <script>
       (function () {
         "use strict";
@@ -3411,11 +3402,12 @@
         /** 伪岔路：上次选择的风景支路 「0」左（偏凉绿）「1」右（偏暖绿） */
         var LS_KEY_FORK_ROUTE = "xmgrassland_v1_pseudoForkRoute";
         var LS_KEY_SCENE5_SPLIT = "xmgrassland_v1_scene5_capsuleSplit";
-        var LS_KEY_ALL_DONE_HONOR_SHOWN = "xmgrassland_v1_allDoneHonorShown";
         var LS_KEY_SCENE2_BONUS_INDEX = "xmgrassland_v1_scene2BonusIndex";
         var LS_KEY_SCENE3_QUIZ_DONE = "xmgrassland_v1_scene3QuizDoneCount";
         var LS_KEY_SCENE5_MOLE_BEST_HIT = "xmgrassland_v1_scene5MoleBestHit";
         var LS_KEY_SCENE5_MOLE_PASSED = "xmgrassland_v1_scene5MolePassed";
+        /** 各关「全部祝福」展示是否已完整浏览过（JSON：{"1":true,...}） */
+        var LS_KEY_SCENE_FULL_SHOWCASE = "xmgrassland_v1_sceneFullShowcaseSeen";
         /** 开发防回归护栏：设为 1 时输出场景2关键约束告警 */
         var LS_KEY_DEV_GUARDS = "xmgrassland_v1_devGuards";
         var devGuardLastWarnAt = {};
@@ -3681,8 +3673,6 @@
         var scene2WideReaderPrevBtn = document.getElementById("scene2WideReaderPrevBtn");
         var scene2WideReaderNextBtn = document.getElementById("scene2WideReaderNextBtn");
         var scene2WideReaderCloseBtn = document.getElementById("scene2WideReaderCloseBtn");
-        var honorRoot = document.getElementById("honorRoot");
-        var honorLikeBtn = document.getElementById("honorLikeBtn");
 
         var W = 0;
         var H = 0;
@@ -3719,7 +3709,8 @@
           if (entryGateLead) entryGateLead.innerHTML = "";
           if (entryGateTitle) entryGateTitle.hidden = false;
           if (entryGateLead) entryGateLead.hidden = false;
-          if (entryGateNextBtn) entryGateNextBtn.disabled = true;
+          // 允许用户随时进入下一步，避免“按钮没反应”的体感。
+          if (entryGateNextBtn) entryGateNextBtn.disabled = false;
           if (entryFlowPanel) entryFlowPanel.hidden = true;
         }
 
@@ -3730,7 +3721,6 @@
           function revealOne() {
             if (!entryGateLead) return;
             if (i >= ENTRY_GATE_LINES.length) {
-              if (entryGateNextBtn) entryGateNextBtn.disabled = false;
               return;
             }
             var p = document.createElement("p");
@@ -3821,9 +3811,78 @@
         var modalNavEntries = null;
         var modalNavIndex = -1;
         var plate1AllReadViewActive = false;
-        var honorRedirectTimer = null;
-        var allDoneHonorPending = false;
-        var allDoneHonorShown = false;
+        var CAKE_PAGE_URL = "cake.html?v=20260414-hotfix-audio";
+        /** @type {Record<string, boolean>} */
+        var sceneFullShowcaseSeen = {};
+
+        function loadSceneFullShowcaseSeen() {
+          sceneFullShowcaseSeen = {};
+          try {
+            var raw = localStorage.getItem(LS_KEY_SCENE_FULL_SHOWCASE);
+            if (!raw) return;
+            var o = JSON.parse(raw);
+            if (o && typeof o === "object") sceneFullShowcaseSeen = o;
+          } catch (e) {}
+        }
+
+        function saveSceneFullShowcaseSeen() {
+          try {
+            localStorage.setItem(LS_KEY_SCENE_FULL_SHOWCASE, JSON.stringify(sceneFullShowcaseSeen));
+          } catch (e) {}
+        }
+
+        function markSceneFullShowcaseSeen(sid) {
+          if (sid < 1 || sid > SCENE_COUNT) return;
+          sceneFullShowcaseSeen[String(sid)] = true;
+          saveSceneFullShowcaseSeen();
+        }
+
+        function allScenesFullShowcaseSeen() {
+          for (var s = 1; s <= SCENE_COUNT; s++) {
+            if (!sceneFullShowcaseSeen[String(s)]) return false;
+          }
+          return true;
+        }
+
+        /** 五关游戏均完成且五关「全部祝福」均已浏览后，弹出带「生日页」按钮的引导（不自动跳转） */
+        function openAllDoneBirthdayMilestoneModal() {
+          if (!sceneMilestoneRoot) return;
+          sceneMilestoneRoot.dataset.milestoneSid = "5";
+          sceneMilestoneRoot.dataset.nextSid = "";
+          sceneMilestoneRoot.dataset.mode = "all_done_birthday";
+          sceneMilestoneTitle.textContent = "可以去过生日啦";
+          if (sceneMilestoneCheck) sceneMilestoneCheck.hidden = false;
+          if (sceneMilestoneP1) {
+            sceneMilestoneP1.hidden = false;
+            sceneMilestoneP1.textContent =
+              "五关都已通关，且每一关的完整祝福你都读过啦。点击下方按钮前往生日页收下蛋糕～";
+          }
+          if (sceneMilestoneP2) {
+            sceneMilestoneP2.hidden = true;
+            sceneMilestoneP2.textContent = "";
+          }
+          if (sceneMilestonePending) sceneMilestonePending.hidden = true;
+          if (sceneMilestoneTargetSelect) sceneMilestoneTargetSelect.hidden = true;
+          if (sceneMilestoneNextBtn) sceneMilestoneNextBtn.hidden = true;
+          if (sceneMilestoneCakeBtn) sceneMilestoneCakeBtn.hidden = false;
+          if (sceneMilestoneOk) {
+            sceneMilestoneOk.className = "btn-secondary";
+            sceneMilestoneOk.textContent = "先留在草原";
+          }
+          sceneMilestoneRoot.hidden = false;
+          syncBodyModalChromeClass();
+        }
+
+        function maybeOfferBirthdayAfterFullShowcase() {
+          if (!allScenesComplete() || !allScenesFullShowcaseSeen()) return;
+          if (entryGateRoot && !entryGateRoot.hidden) return;
+          if (!modalRoot.hidden) return;
+          if (!listModalRoot.hidden) return;
+          if (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) return;
+          if (wishCatchRoot && !wishCatchRoot.hidden) return;
+          if (scene2WideReaderRoot && !scene2WideReaderRoot.hidden) return;
+          openAllDoneBirthdayMilestoneModal();
+        }
         var scene2StayMs = 0;
         var scene2LoveNextSpawnMs = 5000;
         var scene2LoveClaimed = false;
@@ -3982,8 +4041,7 @@
             !listModalRoot.hidden ||
             (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) ||
             (wishCatchRoot && !wishCatchRoot.hidden) ||
-            (scene2WideReaderRoot && !scene2WideReaderRoot.hidden) ||
-            (honorRoot && !honorRoot.hidden)
+            (scene2WideReaderRoot && !scene2WideReaderRoot.hidden)
           );
         }
 
@@ -4004,34 +4062,6 @@
           try {
             console.warn("[scene2-guard] " + message, extra || {});
           } catch (e) {}
-        }
-
-        function isAllScenesComplete() {
-          for (var s = 1; s <= SCENE_COUNT; s++) {
-            if (!isSceneComplete(s)) return false;
-          }
-          return true;
-        }
-
-        function loadAllDoneHonorShown() {
-          try {
-            allDoneHonorShown = localStorage.getItem(LS_KEY_ALL_DONE_HONOR_SHOWN) === "1";
-          } catch (e) {
-            allDoneHonorShown = false;
-          }
-        }
-
-        function markAllDoneHonorShown() {
-          allDoneHonorShown = true;
-          try {
-            localStorage.setItem(LS_KEY_ALL_DONE_HONOR_SHOWN, "1");
-          } catch (e) {}
-        }
-
-        function showAllDoneHonorModal() {
-          if (!honorRoot || allDoneHonorShown) return;
-          honorRoot.hidden = false;
-          syncBodyModalChromeClass();
         }
 
         /** 不应刷路边祝福时；暂停时冻结 2s 冷却 */
@@ -5021,11 +5051,13 @@
           }
           prevBtn.addEventListener("click", function () {
             if (doneReviewMode) {
+              markSceneFullShowcaseSeen(3);
               openSceneMilestoneModal(3);
             }
           });
           nextBtn.addEventListener("click", function () {
             if (doneReviewMode) {
+              markSceneFullShowcaseSeen(3);
               openSceneMilestoneModal(3);
               return;
             }
@@ -5166,14 +5198,22 @@
             var p = round.promptEntries[i];
             var item = scene3FoodItemById(p.foodId);
             if (!item) continue;
+            var wantCls = p.foodId === round.wantedId ? " scene3-food-prompt-item--want" : "";
             parts.push(
-              '<span class="scene3-food-prompt-item">' +
+              '<span class="scene3-food-prompt-item' +
+                wantCls +
+                '">' +
                 p.verb +
                 scene3FoodIconHtml(item.id, item.label) +
                 "</span>"
             );
           }
-          return '<span class="scene3-food-prompt-line">马儿' + parts.join("，") + "。</span>";
+          return (
+            '<div class="scene3-food-prompt-tip">规则：下面三枚小标签里，<strong>只有一枚</strong>用了「想吃 / 最想吃 / 就想吃」这类词；另外两枚是「不想吃 / 不爱吃 / 不会吃」等。<strong>你要记住「想吃」那一枚</strong>对应的食物，题目消失后在下方点<strong>同一个食物</strong>。</div>' +
+            '<div class="scene3-food-prompt-line">马儿' +
+              parts.join("，") +
+              "。</div>"
+          );
         }
 
         function scene3ComposePrompt(wantId) {
@@ -5317,18 +5357,27 @@
 
         function syncScene3FoodGameUi() {
           if (!scene3FoodUi) return;
-          var got = scene3QuizDoneNormalized();
-          var target = SCENE3_QUIZ_TOTAL_ROUNDS;
+          var passN = scene3PassRoundCount();
+          var got = Math.min(scene3QuizDoneNormalized(), passN);
           if (scene3FoodUi.progress)
             scene3FoodUi.progress.textContent =
-              "完成进度 " + got + "/" + target + "（通关线 " + scene3PassRoundCount() + "）";
+              "通关进度 " +
+              got +
+              "/" +
+              passN +
+              "（答满 " +
+              passN +
+              " 题通关，题库共 " +
+              SCENE3_QUIZ_TOTAL_ROUNDS +
+              " 题）";
           if (scene3FoodUi.prompt) {
             if (!scene3GameStarted) {
-              scene3FoodUi.prompt.innerHTML = "准备好了就点“开始游戏”，再进入答题。";
+              scene3FoodUi.prompt.innerHTML =
+                "玩法：每题先<strong>读题约 2 秒</strong>，记住<strong>「想吃」那一项</strong>；题目隐藏后<strong>3 秒内</strong>点下方<strong>对应食物</strong>。准备好了点「开始游戏」。";
             } else {
             var hidePrompt = scene3FoodRound && !scene3FoodRound.resolved && scene3FoodRound.phase === "answer";
             scene3FoodUi.prompt.innerHTML = hidePrompt
-              ? "题目已隐藏，请在 3 秒内选出马儿想吃的食物。"
+              ? '<div class="scene3-food-prompt-tip scene3-food-prompt-tip--answer">题目已隐藏：请在倒计时内，点<strong>刚才「想吃」那一项</strong>对应的<strong>胡萝卜 / 苹果 / 丸子</strong>按钮。</div>'
               : renderScene3PromptHtml(scene3FoodRound);
             }
           }
@@ -5380,7 +5429,7 @@
           var status = document.createElement("div");
           status.className = "scene3-food-status";
           var desc = document.createElement("span");
-          desc.textContent = "先读题 2 秒，题目隐藏后有 3 秒答题。";
+          desc.textContent = "① 读题约 2 秒并记住「想吃」那一项 ② 隐藏后在 3 秒内点对应食物。";
           var countdown = document.createElement("strong");
           countdown.className = "scene3-food-countdown";
           status.appendChild(desc);
@@ -5595,6 +5644,7 @@
                 scene5MoleUi.holes[h0].disabled = true;
               }
             }
+            applyInteractiveViewportFit();
             return;
           }
           var leftMs = Math.max(0, SCENE5_MOLE_LIMIT_MS - (performance.now() - scene5MoleState.startedAt));
@@ -5603,12 +5653,13 @@
             scene5MoleUi.meta.textContent =
               "倒计时 " +
               leftSec +
-              " 秒 · 命中 " +
-              scene5MoleState.hit +
+              " 秒 · 通关命中 " +
+              Math.min(scene5MoleState.hit, SCENE5_MOLE_PASS_HIT) +
               "/" +
+              SCENE5_MOLE_PASS_HIT +
+              "（共 " +
               SCENE5_MOLE_TOTAL +
-              " · 通关线 " +
-              SCENE5_MOLE_PASS_HIT;
+              " 只）";
           }
           if (scene5MoleUi.status) {
             if (scene5MoleState.ended) scene5MoleUi.status.textContent = scene5MoleState.finalMessage || "";
@@ -5683,10 +5734,10 @@
             startScene5MoleGame();
           });
           wrap.appendChild(head);
+          wrap.appendChild(startWrap);
           wrap.appendChild(s);
           wrap.appendChild(grid);
           wrap.appendChild(result);
-          wrap.appendChild(startWrap);
           wrap.appendChild(retry);
           plateReaderBody.appendChild(wrap);
           scene5MoleUi = { meta: m, status: s, holes: holes, result: result, retry: retry, startWrap: startWrap };
@@ -5744,13 +5795,22 @@
           }
           var actions = document.createElement("div");
           actions.className = "scene5-all-window__actions";
+          var replayBtn = document.createElement("button");
+          replayBtn.type = "button";
+          replayBtn.className = "scene5-all-window__replay";
+          replayBtn.textContent = "再玩一次打地鼠";
+          replayBtn.addEventListener("click", function () {
+            replayScene5MoleFromReview();
+          });
           var doneBtn = document.createElement("button");
           doneBtn.type = "button";
           doneBtn.className = "scene5-all-window__done";
           doneBtn.textContent = "我看完啦";
           doneBtn.addEventListener("click", function () {
+            markSceneFullShowcaseSeen(5);
             openSceneMilestoneModal(5);
           });
+          actions.appendChild(replayBtn);
           actions.appendChild(doneBtn);
           wrap.appendChild(head);
           wrap.appendChild(box);
@@ -5765,16 +5825,33 @@
           if (mode === "scene3_game") target = plateReaderBody.querySelector(".scene3-food-game");
           else if (mode === "scene5_game") target = plateReaderBody.querySelector(".scene5-mole-game");
           if (!target) return;
-          target.style.transform = "";
-          target.style.transformOrigin = "";
-          var avail = Math.max(1, plateReaderBody.clientHeight - 2);
-          var need = Math.max(1, target.scrollHeight);
-          if (need <= avail) return;
-          var scale = avail / need;
-          if (scale > 1) scale = 1;
-          if (scale < 0.68) scale = 0.68;
-          target.style.transformOrigin = "top center";
-          target.style.transform = "scale(" + scale + ")";
+          function fitOnce() {
+            target.style.transform = "";
+            target.style.transformOrigin = "";
+            var avail = Math.max(1, plateReaderBody.clientHeight - 2);
+            var need = Math.max(1, target.scrollHeight);
+            if (need <= avail) return;
+            var scale = avail / need;
+            if (scale > 1) scale = 1;
+            // 不再强行抬高最小缩放：否则矮屏/长内容时底部按钮会被裁切且无法滚动。
+            if (scale < 0.22) scale = 0.22;
+            target.style.transformOrigin = "top center";
+            target.style.transform = "scale(" + scale + ")";
+          }
+          fitOnce();
+          requestAnimationFrame(fitOnce);
+        }
+
+        function replayScene5MoleFromReview() {
+          scene5MolePassed = false;
+          scene5ReviewModeActive = false;
+          scene5GameStarted = false;
+          scene5MoleState = null;
+          try {
+            localStorage.setItem(LS_KEY_SCENE5_MOLE_PASSED, "0");
+          } catch (e0) {}
+          renderPlateReader();
+          updateSceneHud();
         }
 
         function renderPlateStarryField(list) {
@@ -5878,6 +5955,7 @@
               drawBtn.disabled = true;
               drawBtn.textContent = "已全部看完（不可再抽）";
               if (isSceneComplete(5) && !isScene100ModalAlreadyShown(5)) {
+                markSceneFullShowcaseSeen(5);
                 openSceneMilestoneModal(5);
               }
               return;
@@ -6112,7 +6190,6 @@
           var sceneEndOverlayVisible =
             (wishCatchRoot && !wishCatchRoot.hidden) ||
             (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) ||
-            (honorRoot && !honorRoot.hidden) ||
             (modalRoot && !modalRoot.hidden) ||
             (listModalRoot && !listModalRoot.hidden);
           var shouldHideVisibleBlessingHud =
@@ -6268,8 +6345,9 @@
 
         function getSceneProgressTargetCount(sid) {
           var s = parseInt(sid, 10) || 0;
-          if (s === 3) return SCENE3_QUIZ_TOTAL_ROUNDS;
-          if (s === 5) return SCENE5_MOLE_TOTAL;
+          // 第3、5关：底栏与里程碑按「通关线（60%）」计满格，不与全关祝福池 200 条混用
+          if (s === 3) return scene3PassRoundCount();
+          if (s === 5) return SCENE5_MOLE_PASS_HIT;
           return getSceneTargetCount(s);
         }
 
@@ -6302,8 +6380,12 @@
 
         function getSceneProgressCount(sid) {
           var s = parseInt(sid, 10) || 0;
-          if (s === 3) return scene3QuizDoneNormalized();
-          if (s === 5) return scene5MoleProgressCount();
+          if (s === 3) {
+            return Math.min(scene3QuizDoneNormalized(), scene3PassRoundCount());
+          }
+          if (s === 5) {
+            return Math.min(scene5MoleProgressCount(), SCENE5_MOLE_PASS_HIT);
+          }
           return uniqueReceivedCountInScene(s);
         }
 
@@ -6583,11 +6665,10 @@
           var rawPct = target > 0 ? (got / target) * 100 : 0;
           var pct = Math.max(0, Math.min(100, Math.round(rawPct)));
           sceneHudBarFill.style.width = pct + "%";
-          if (!allDoneHonorShown && allScenesComplete()) allDoneHonorPending = true;
           syncSceneSwitchSelectFromState();
           syncStationChrome();
           updateScene4FanBadge();
-          tryFlushAllDoneHonor();
+          maybeOfferBirthdayAfterFullShowcase();
           if (sid === 1 || sid === 2) syncPlate1RunnerHud();
         }
 
@@ -6600,8 +6681,7 @@
             (wishCatchRoot && !wishCatchRoot.hidden) ||
             (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) ||
             (modalRoot && !modalRoot.hidden) ||
-            (listModalRoot && !listModalRoot.hidden) ||
-            (honorRoot && !honorRoot.hidden)
+            (listModalRoot && !listModalRoot.hidden)
           ) {
             scene4FanBadge.hidden = true;
             return;
@@ -6678,7 +6758,7 @@
           if (sid === 3)
             return {
               title: "第3关「心想事成」",
-              body: "每轮随机出题：马儿想吃哪一种食物？你要在 3 秒内点中正确食物，答对+1，答错或超时不得分；攒满后解锁第三关全部祝福展示。",
+              body: "每轮先出现约 2 秒题目：三行里只有一行是「想吃/最想吃」（另两行是不要吃的）。题目消失后 3 秒内，点下方与「想吃」那一行相同的食物按钮；点对记 1 题进度，点错或超时本题不计入。完成规定题数通关并解锁本关祝福。",
             };
           if (sid === 4)
             return {
@@ -6840,7 +6920,6 @@
             if (currentScene !== sid) return;
             if (!wishCatchRoot || !wishCatchRoot.hidden) return;
             if (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) return;
-            if (honorRoot && !honorRoot.hidden) return;
             if (modalRoot && !modalRoot.hidden) return;
             openSceneCollectedReviewModal(sid);
           }, 3200);
@@ -6878,29 +6957,10 @@
           openSceneMilestoneModal(sid);
         }
 
-        function tryFlushAllDoneHonor() {
-          if (!allDoneHonorPending || allDoneHonorShown) return;
-          if (entryGateRoot && !entryGateRoot.hidden) return;
-          if (!modalRoot.hidden) return;
-          if (!listModalRoot.hidden) return;
-          if (sceneMilestoneRoot && !sceneMilestoneRoot.hidden) return;
-          if (wishCatchRoot && !wishCatchRoot.hidden) return;
-          allDoneHonorPending = false;
-          showAllDoneHonorModal();
-        }
-
-        function autoCheckAllScenesFromMilestonePrompt() {
-          if (allDoneHonorShown) return false;
-          if (!allScenesComplete()) return false;
-          allDoneHonorPending = false;
-          showAllDoneHonorModal();
-          return true;
-        }
-
         function closeBlessingContentModal() {
           closeModal();
           tryFlushPendingSceneMilestone();
-          tryFlushAllDoneHonor();
+          maybeOfferBirthdayAfterFullShowcase();
         }
 
         function milestoneTargetOptions(exceptSid) {
@@ -6968,22 +7028,26 @@
 
         function openSceneMilestoneModal(sid) {
           if (!sceneMilestoneRoot) return;
-          if (autoCheckAllScenesFromMilestonePrompt()) return;
-          var allDone = allScenesComplete();
-          if (allDone) {
-            allDoneHonorPending = false;
-            showAllDoneHonorModal();
+          if (allScenesComplete() && allScenesFullShowcaseSeen()) {
+            openAllDoneBirthdayMilestoneModal();
             return;
           }
           var curLetter = sceneLetterFromIndex(sid);
           var curName = SCENE_LABELS[sid - 1] || "";
           sceneMilestoneRoot.dataset.milestoneSid = String(sid);
           sceneMilestoneRoot.dataset.nextSid = "";
+          if (sceneMilestoneRoot.dataset) delete sceneMilestoneRoot.dataset.mode;
           sceneMilestoneTitle.textContent = "恭喜通关「" + curName + "」";
           if (sceneMilestoneCheck) sceneMilestoneCheck.hidden = false;
           if (sceneMilestoneP1) {
-            sceneMilestoneP1.hidden = true;
-            sceneMilestoneP1.textContent = "";
+            if (allScenesComplete() && !allScenesFullShowcaseSeen()) {
+              sceneMilestoneP1.hidden = false;
+              sceneMilestoneP1.textContent =
+                "五关进度都已完成。若还有关卡的「全部祝福」没读完，请从下方选一站去浏览；每一关都读过一遍后，会在这里出现去生日页的按钮。";
+            } else {
+              sceneMilestoneP1.hidden = true;
+              sceneMilestoneP1.textContent = "";
+            }
           }
           if (sceneMilestoneP2) {
             sceneMilestoneP2.hidden = true;
@@ -7303,6 +7367,7 @@
               openScene5RandomDrawModal(blessingsInScene(5));
             } else {
               if (isSceneComplete(5) && !isScene100ModalAlreadyShown(5)) {
+                markSceneFullShowcaseSeen(5);
                 openSceneMilestoneModal(5);
               }
             }
@@ -7343,7 +7408,6 @@
 
         function showScene4CompleteModal() {
           if (!wishCatchRoot || !wishCatchTitle || !wishCatchMeta || !wishCatchPrimaryBtn || !wishCatchSecondaryBtn || !wishCatchList) return;
-          if (autoCheckAllScenesFromMilestonePrompt()) return;
           var got = uniqueReceivedCountInScene(4);
           var target = getSceneTargetCount(4);
           wishCatchRoot.dataset.mode = "complete";
@@ -7361,6 +7425,7 @@
         function closeScene4WishModal() {
           if (!wishCatchRoot) return;
           var modeBeforeClose = wishCatchRoot.dataset.mode || "";
+          if (modeBeforeClose === "list" && currentScene === 4) markSceneFullShowcaseSeen(4);
           if (scene5DrawRollingTimer) {
             clearInterval(scene5DrawRollingTimer);
             scene5DrawRollingTimer = null;
@@ -7386,7 +7451,7 @@
           syncBodyModalChromeClass();
           syncPlatePresentation();
           tryFlushPendingSceneMilestone();
-          tryFlushAllDoneHonor();
+          maybeOfferBirthdayAfterFullShowcase();
         }
 
         function maybeSpawnScene2LoveBonus() {
@@ -7455,10 +7520,11 @@
 
         function closeScene2WideReader() {
           if (!scene2WideReaderRoot) return;
+          if (currentScene === 2 && isSceneComplete(2)) markSceneFullShowcaseSeen(2);
           scene2WideReaderRoot.hidden = true;
           syncBodyModalChromeClass();
           tryFlushPendingSceneMilestone();
-          tryFlushAllDoneHonor();
+          maybeOfferBirthdayAfterFullShowcase();
         }
 
         function renderScene2WideReader() {
@@ -10847,7 +10913,7 @@
           listModalBody.innerHTML = "";
           syncBodyModalChromeClass();
           tryFlushPendingSceneMilestone();
-          tryFlushAllDoneHonor();
+          maybeOfferBirthdayAfterFullShowcase();
         }
 
         function renderReceivedList() {
@@ -11494,7 +11560,10 @@
             if (mode === "scene_review") {
               var sidReview = parseInt(wishCatchRoot.dataset.reviewSid || "0", 10) || currentScene;
               closeScene4WishModal();
-              if (!isNaN(sidReview) && sidReview >= 1 && sidReview <= SCENE_COUNT) openSceneMilestoneModal(sidReview);
+              if (!isNaN(sidReview) && sidReview >= 1 && sidReview <= SCENE_COUNT) {
+                markSceneFullShowcaseSeen(sidReview);
+                openSceneMilestoneModal(sidReview);
+              }
               return;
             }
             if (mode === "bomb") {
@@ -11522,6 +11591,7 @@
             if (wishCatchRoot && (wishCatchRoot.dataset.mode || "") === "scene2_love_list") {
               if (scene2BonusItems.length && scene2BonusIndex >= scene2BonusItems.length - 1) {
                 closeScene4WishModal();
+                markSceneFullShowcaseSeen(2);
                 openSceneMilestoneModal(2);
                 return;
               }
@@ -11564,6 +11634,7 @@
             e.stopPropagation();
             if (wishCatchRoot && (wishCatchRoot.dataset.mode || "") === "scene2_love_list") {
               closeScene4WishModal();
+              markSceneFullShowcaseSeen(2);
               openSceneMilestoneModal(2);
               return;
             }
@@ -11604,25 +11675,6 @@
             closeScene2WideReader();
           });
         }
-        if (honorLikeBtn) {
-          honorLikeBtn.addEventListener("click", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            markAllDoneHonorShown();
-            if (honorLikeBtn) honorLikeBtn.disabled = true;
-            if (honorRedirectTimer) {
-              clearTimeout(honorRedirectTimer);
-              honorRedirectTimer = null;
-            }
-            // 点赞页停留 6 秒后自动跳转蛋糕页
-            honorRedirectTimer = setTimeout(function () {
-              if (honorRoot) honorRoot.hidden = true;
-              syncBodyModalChromeClass();
-              window.location.href = "cake.html?v=20260414-hotfix-audio";
-            }, 6000);
-          });
-        }
-
         if (devForkPreviewBtn) {
           devForkPreviewBtn.addEventListener("click", function (e) {
             e.preventDefault();
@@ -11775,7 +11827,7 @@
             e.preventDefault();
             e.stopPropagation();
             closeSceneMilestoneModal(true);
-            window.location.href = "cake.html?v=20260414-hotfix-audio";
+            window.location.href = CAKE_PAGE_URL;
           });
         }
         function onReadAllShortcutClick(e) {
@@ -11815,6 +11867,7 @@
             e.preventDefault();
             e.stopPropagation();
             if (currentScene !== 1 || !plate1AllReadViewActive) return;
+            markSceneFullShowcaseSeen(1);
             openSceneMilestoneModal(1);
           });
         }
@@ -11839,11 +11892,11 @@
               localStorage.removeItem(LS_KEY_DEV_FORK_PREVIEW);
               localStorage.removeItem(LS_KEY_FORK_ROUTE);
               localStorage.removeItem(LS_KEY_SCENE5_SPLIT);
-              localStorage.removeItem(LS_KEY_ALL_DONE_HONOR_SHOWN);
               localStorage.removeItem(LS_KEY_SCENE2_BONUS_INDEX);
               localStorage.removeItem(LS_KEY_SCENE3_QUIZ_DONE);
               localStorage.removeItem(LS_KEY_SCENE5_MOLE_BEST_HIT);
               localStorage.removeItem(LS_KEY_SCENE5_MOLE_PASSED);
+              localStorage.removeItem(LS_KEY_SCENE_FULL_SHOWCASE);
             } catch (err1) {}
             location.reload();
           });
@@ -11881,7 +11934,7 @@
         loadScene3QuizDoneCount();
         loadScene5MoleProgress();
         loadScene5CapsuleSplit();
-        loadAllDoneHonorShown();
+        loadSceneFullShowcaseSeen();
         syncDevForkPreviewBtn();
         updateBlessingBadge();
         syncDataSourceTag("ok", "等待加载");
@@ -11897,7 +11950,10 @@
           if (shouldShowEntryIntro()) {
             entryGateRoot.removeAttribute("hidden");
             entryGateRoot.hidden = false;
-            if (entryGateNextBtn) entryGateNextBtn.hidden = false;
+            if (entryGateNextBtn) {
+              entryGateNextBtn.hidden = false;
+              entryGateNextBtn.disabled = false;
+            }
             startEntryLineReveal();
           } else {
             entryGateRoot.hidden = true;
